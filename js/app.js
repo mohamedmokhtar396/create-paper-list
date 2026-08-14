@@ -111,9 +111,9 @@ function updateListSubTitle() {
     }
 }
 
-// Custom Table Category Management
+// Custom Table Category Management (Add, Rename, Delete Table Categories)
 function addNewTableCategoryPrompt() {
-    const name = prompt('أدخل اسم الجدول الجديد (مثال: جدول ورق سلوفان، جدول الكرتون...):');
+    const name = prompt('أدخل اسم الجدول الجديد (مثال: برستول كوشيه، ظهر كرافت، كرافت وش وظهر، هوالك...):');
     if (!name || !name.trim()) return;
     const list = getActiveList();
     const newCat = {
@@ -137,43 +137,27 @@ function renameTableCategory(catId) {
 
 function deleteTableCategory(catId) {
     const list = getActiveList();
-    if (list.categories.length <= 1) {
-        alert('يجب أن تحتوي القائمة على جدول واحد على الأقل.');
+    if (!list.categories || list.categories.length <= 1) {
+        alert('يجب أن تحتوي القائمة على جدول مخصص واحد على الأقل.');
         return;
     }
-    const cat = list.categories.find(c => c.id === catId);
-    if (!cat) return;
-    if (confirm(`هل أنت تأكد من حذف الجدول "${cat.name}"؟ سيتم نقل أصنافه إلى الجدول الأول.`)) {
+    const catToDelete = list.categories.find(c => c.id === catId);
+    if (!catToDelete) return;
+
+    if (confirm(`هل أنت متاكد من حذف جدول "${catToDelete.name}"؟ سيتم إعادة توجيه أصنافه تلقائيًا إلى الجدول الأول.`)) {
         list.categories = list.categories.filter(c => c.id !== catId);
         const fallbackCatId = list.categories[0].id;
         list.items.forEach(item => {
-            if (item.categoryId === catId) item.categoryId = fallbackCatId;
+            if (item.categoryId === catId) {
+                item.categoryId = fallbackCatId;
+                item.isSpecial = (fallbackCatId === 'cat_special');
+            }
         });
         renderApp();
     }
 }
 
 function updateItemCategory(itemId, categoryId) {
-    if (categoryId === 'ADD_NEW') {
-        const name = prompt('أدخل اسم الجدول الجديد (مثال: جدول ورق سلوفان، جدول الكرتون...):');
-        if (name && name.trim()) {
-            const list = getActiveList();
-            const newCat = {
-                id: 'cat_' + Date.now(),
-                name: name.trim()
-            };
-            list.categories.push(newCat);
-            const item = list.items.find(i => i.id === itemId);
-            if (item) {
-                item.categoryId = newCat.id;
-                item.isSpecial = false;
-            }
-            renderApp();
-        } else {
-            renderRawTable();
-        }
-        return;
-    }
     const list = getActiveList();
     const item = list.items.find(i => i.id === itemId);
     if (item) {

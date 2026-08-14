@@ -4,8 +4,13 @@ body {
     font-family: 'Cairo', sans-serif;
 }
 
-/* Ensure text wrapping on all tables and cells */
-table th, table td {
+/* Text-wrap applied ONLY to the Right Panel Aggregated Table, Preview & PDF exports */
+#exportableArea table th,
+#exportableArea table td,
+#previewModalContent table th,
+#previewModalContent table td,
+#pdfExportContainer table th,
+#pdfExportContainer table td {
     white-space: normal !important;
     word-wrap: break-word !important;
     word-break: break-word !important;
@@ -36,7 +41,7 @@ table th, table td {
     font-family: 'Cairo', sans-serif;
     direction: rtl;
     padding: 24px;
-    width: 800px; /* Standard printable width */
+    width: 800px;
     box-sizing: border-box;
 }
 
@@ -53,8 +58,6 @@ table th, table td {
     padding: 8px 10px;
     text-align: right;
     font-size: 12px;
-    white-space: normal !important;
-    word-break: break-word !important;
 }
 
 #pdfExportContainer th {

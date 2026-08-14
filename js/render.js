@@ -27,44 +27,45 @@ function renderListTabs() {
     });
 }
 
-// Render Dynamic Header Control Pills & Category Table Pills
+// Render Dynamic Header Control Pills & Table Category Pills (With Add, Rename & Delete buttons)
 function renderHeadersControl() {
     const list = getActiveList();
     const container = document.getElementById('headersContainer');
     if (!container) return;
     container.innerHTML = '';
 
-    const categories = list.categories || defaultCategories;
+    // 1. Table Categories Management Section
+    const catSection = document.createElement('div');
+    catSection.className = "w-full border-b border-slate-200 pb-2.5 mb-2.5 flex flex-wrap items-center gap-2";
+    catSection.innerHTML = `<span class="text-xs font-bold text-slate-700 flex items-center gap-1 pl-1"><i class="fa-solid fa-folder-open text-indigo-600"></i> الجداول التجميعية:</span>`;
 
-    // 1. Render Table Category Manager Pills
-    const catGroupWrapper = document.createElement('div');
-    catGroupWrapper.className = "w-full flex flex-wrap items-center gap-2 border-b pb-2 mb-2";
-    catGroupWrapper.innerHTML = `<span class="text-xs font-bold text-indigo-900 flex items-center gap-1"><i class="fa-solid fa-folder font-normal text-indigo-600"></i> الجداول المخصصة:</span>`;
-    
-    categories.forEach(cat => {
-        const isSpecial = cat.id === 'cat_special';
+    (list.categories || defaultCategories).forEach(cat => {
         const catPill = document.createElement('div');
-        catPill.className = `flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${isSpecial ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-indigo-50 text-indigo-800 border-indigo-200'}`;
+        const isSpecial = cat.id === 'cat_special';
+        catPill.className = `flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition ${
+            isSpecial ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-indigo-50 text-indigo-900 border-indigo-200'
+        }`;
+        
         catPill.innerHTML = `
             <span>${cat.name}</span>
-            <i class="fa-solid fa-pen text-[10px] hover:text-indigo-600 cursor-pointer px-0.5" onclick="renameTableCategory('${cat.id}')" title="تعديل اسم هذا الجدول"></i>
-            ${categories.length > 1 ? `<i class="fa-solid fa-trash-can text-[10px] hover:text-rose-600 cursor-pointer px-0.5" onclick="deleteTableCategory('${cat.id}')" title="حذف هذا الجدول"></i>` : ''}
+            <i class="fa-solid fa-pen text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer px-0.5" onclick="renameTableCategory('${cat.id}')" title="تعديل اسم هذا الجدول"></i>
+            ${list.categories.length > 1 ? `<i class="fa-solid fa-trash-can text-[10px] text-slate-400 hover:text-rose-600 cursor-pointer px-0.5" onclick="deleteTableCategory('${cat.id}')" title="حذف هذا الجدول"></i>` : ''}
         `;
-        catGroupWrapper.appendChild(catPill);
+        catSection.appendChild(catPill);
     });
 
     const addCatBtn = document.createElement('button');
     addCatBtn.onclick = addNewTableCategoryPrompt;
-    addCatBtn.className = "text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm";
-    addCatBtn.innerHTML = `<i class="fa-solid fa-plus text-[10px]"></i> إضافة جدول جديد`;
-    catGroupWrapper.appendChild(addCatBtn);
+    addCatBtn.className = "bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 shadow-sm";
+    addCatBtn.innerHTML = `<i class="fa-solid fa-plus"></i> إضافة جدول جديد`;
+    catSection.appendChild(addCatBtn);
 
-    container.appendChild(catGroupWrapper);
+    container.appendChild(catSection);
 
-    // 2. Render Column Header Control Pills
-    const headersWrapper = document.createElement('div');
-    headersWrapper.className = "w-full flex flex-wrap items-center gap-2";
-    headersWrapper.innerHTML = `<span class="text-xs font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-columns font-normal text-slate-500"></i> أعمدة البيانات:</span>`;
+    // 2. Data Headers Section
+    const headersSection = document.createElement('div');
+    headersSection.className = "w-full flex flex-wrap items-center gap-2";
+    headersSection.innerHTML = `<span class="text-xs font-bold text-slate-700 flex items-center gap-1 pl-1"><i class="fa-solid fa-sliders text-indigo-600"></i> أعمدة البيانات:</span>`;
 
     list.headers.forEach(h => {
         const pill = document.createElement('div');
@@ -83,13 +84,13 @@ function renderHeadersControl() {
             <i class="fa-solid fa-pen text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer px-0.5" onclick="renameHeader('${h.id}')" title="تعديل اسم العمود"></i>
             ${list.headers.length > 1 ? `<i class="fa-solid fa-trash-can text-[10px] text-slate-400 hover:text-rose-600 cursor-pointer px-0.5" onclick="deleteHeader('${h.id}')"></i>` : ''}
         `;
-        headersWrapper.appendChild(pill);
+        headersSection.appendChild(pill);
     });
 
-    container.appendChild(headersWrapper);
+    container.appendChild(headersSection);
 }
 
-// Render Raw Input Table (Left Panel) with Category Dropdown, Editable Code & Text Wrap
+// Render Raw Input Table (Left Panel) with Category Dropdown, Editable Code & Drag-and-Drop
 function renderRawTable() {
     const list = getActiveList();
     const thead = document.getElementById('rawTableHeader');
@@ -100,7 +101,7 @@ function renderRawTable() {
 
     // Header HTML with Reorder, Category Select & Editable Code
     let thHTML = '<th class="p-2 border border-slate-200 text-center w-10" title="ترتيب وتحريك الأسطر يدوياً"><i class="fa-solid fa-up-down text-indigo-600"></i></th>';
-    thHTML += '<th class="p-2 border border-slate-200 text-center w-32" title="تحديد الجدول أو تصنيف الصنف">الجدول / التصنيف</th>';
+    thHTML += '<th class="p-2 border border-slate-200 text-center w-28" title="تحديد الجدول أو تصنيف الصنف">الجدول / التصنيف</th>';
     thHTML += '<th class="p-2 border border-slate-200 text-center w-16" title="كود الصنف (قابل للتعديل يدويًا)">الكود #</th>';
     list.headers.forEach(h => {
         const suffix = getUnitSuffix(h.name);
@@ -139,13 +140,12 @@ function renderRawTable() {
             </td>
         `;
 
-        // Category Selector Dropdown with ADD_NEW Option
+        // Category Selector Dropdown
         let catOptions = '';
         categories.forEach(cat => {
             const selected = item.categoryId === cat.id ? 'selected' : '';
             catOptions += `<option value="${cat.id}" ${selected}>${cat.name}</option>`;
         });
-        catOptions += `<option value="ADD_NEW" class="font-bold text-indigo-600">+ إضافة جدول جديد...</option>`;
 
         tdHTML += `
             <td class="p-1 border border-slate-200 text-center">
@@ -170,14 +170,12 @@ function renderRawTable() {
         list.headers.forEach(h => {
             const val = item[h.id] !== undefined ? toEnglishDigits(item[h.id]) : '';
             const isNum = h.role === 'sum';
-            const isTypeOrText = h.role === 'group' || h.role === 'info';
-
             tdHTML += `
                 <td class="p-1 border border-slate-200">
                     <input type="${isNum ? 'number' : 'text'}" value="${val}" 
                         onchange="updateItemValue('${item.id}', '${h.id}', this.value)"
                         placeholder="${isNum ? '0' : ''}"
-                        class="w-full p-1 text-xs bg-transparent border border-transparent focus:border-indigo-400 focus:bg-white rounded outline-none transition ${isTypeOrText ? 'whitespace-normal break-words' : ''}">
+                        class="w-full p-1 text-xs bg-transparent border border-transparent focus:border-indigo-400 focus:bg-white rounded outline-none transition">
                 </td>
             `;
         });
@@ -216,7 +214,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpec
             if (h.role === 'group') {
                 const val = row.groupValues[h.id] || '';
                 const formatted = formatCellValueWithUnit(val, h.name, false);
-                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold whitespace-normal break-words leading-relaxed min-w-[130px]">${formatted}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold whitespace-normal break-words leading-relaxed">${formatted}</td>`;
             } else if (h.role === 'sum') {
                 const val = row.sumValues[h.id] || 0;
                 totals[h.id] += val;
@@ -225,7 +223,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpec
             } else {
                 const valArr = (row.infoValues[h.id] || []).filter(Boolean);
                 const valStr = valArr.map(v => formatCellValueWithUnit(v, h.name, false)).join(', ');
-                rowsHTML += `<td class="p-1.5 border border-slate-200 text-slate-600 text-[11px] whitespace-normal break-words leading-relaxed min-w-[100px]">${valStr || '-'}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 text-slate-600 text-[11px] whitespace-normal break-words leading-relaxed">${valStr || '-'}</td>`;
             }
         });
         
@@ -282,6 +280,7 @@ function renderAggregatedTable() {
                         <i class="fa-solid ${isSpecial ? 'fa-square-check text-amber-600' : 'fa-table text-indigo-600'}"></i>
                         <span>${catGroup.name}</span>
                         <i class="fa-solid fa-pen text-[9px] text-slate-400 hover:text-indigo-600 cursor-pointer" onclick="renameTableCategory('${catGroup.id}')" title="تعديل اسم هذا الجدول"></i>
+                        ${list.categories.length > 1 ? `<i class="fa-solid fa-trash-can text-[9px] text-slate-400 hover:text-rose-600 cursor-pointer" onclick="deleteTableCategory('${catGroup.id}')" title="حذف هذا الجدول"></i>` : ''}
                     </h5>
                     <span class="text-[10px] font-bold ${isSpecial ? 'bg-amber-200 text-amber-900' : 'bg-indigo-100 text-indigo-800'} px-2 py-0.5 rounded-full">
                         إجمالي الجدول: ${sumHeader ? formatCellValueWithUnit(catGroup.totalWeight, sumHeader.name, true) : formatEnglishNumber(catGroup.totalWeight)}
