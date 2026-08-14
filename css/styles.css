@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
+
+body {
+    font-family: 'Cairo', sans-serif;
+}
+
+/* Custom Scrollbars */
+.custom-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Printable Clean Export Container (offscreen/clone rendering) */
+#pdfExportContainer {
+    background: #ffffff;
+    color: #1e293b;
+    font-family: 'Cairo', sans-serif;
+    direction: rtl;
+    padding: 20px;
+    width: 794px; /* Standard A4 width in pixels at 96 DPI */
+    box-sizing: border-box;
+}
+
+#pdfExportContainer table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+#pdfExportContainer th,
+#pdfExportContainer td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 10px;
+    text-align: right;
+    font-size: 12px;
+}
+
+#pdfExportContainer th {
+    background-color: #1e293b;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+#pdfExportContainer tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+
+#pdfExportContainer tfoot td {
+    background-color: #f1f5f9;
+    font-weight: 800;
+    border-top: 2px solid #94a3b8;
+}
+
+/* Modal Animations */
+.modal-enter {
+    animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

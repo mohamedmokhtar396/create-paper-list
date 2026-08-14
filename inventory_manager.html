@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة وتجميع الشحنات والأصناف الواردة</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf.js for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- html2canvas for image export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Custom Application CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="bg-indigo-900 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="bg-indigo-600 p-2.5 rounded-xl shadow-inner">
+                    <i class="fa-solid fa-boxes-stacked text-2xl text-indigo-100"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-xl leading-tight">نظام إدارة وتجميع الأصناف الواردة</h1>
+                    <p class="text-xs text-indigo-200">إدارة اللوائح، الدمج التلقائي، التصدير، والمعاينة المباشرة</p>
+                </div>
+            </div>
+
+            <!-- Global Actions & Settings -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="resetDefaultDataPrompt()" class="bg-indigo-800 hover:bg-indigo-700 text-xs text-white px-3 py-2 rounded-lg transition flex items-center gap-1.5 border border-indigo-700" title="استعادة قائمة الأصناف الأصلية كاملة (27 صنفاً من برستول كوشيه السويس)">
+                    <i class="fa-solid fa-rotate text-amber-400"></i> استرجاع قائمة 27 صنفاً
+                </button>
+                <button onclick="exportFullJSON()" class="bg-indigo-800 hover:bg-indigo-700 text-xs text-white px-3 py-2 rounded-lg transition flex items-center gap-1.5 border border-indigo-700">
+                    <i class="fa-solid fa-download text-emerald-400"></i> تصدير نسخة (JSON)
+                </button>
+                <button onclick="document.getElementById('importJsonInput').click()" class="bg-indigo-800 hover:bg-indigo-700 text-xs text-white px-3 py-2 rounded-lg transition flex items-center gap-1.5 border border-indigo-700">
+                    <i class="fa-solid fa-upload text-amber-400"></i> استرجاع نسخة
+                </button>
+                <input type="file" id="importJsonInput" class="hidden" accept=".json" onchange="importFullJSON(event)">
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full flex flex-col gap-6">
+
+        <!-- Top Bar: List Manager & Stats Dashboard -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            
+            <!-- List Tabs & Selector (3 Cols) -->
+            <div class="lg:col-span-3 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between gap-3">
+                <div class="flex items-center justify-between border-b pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-folder-open text-indigo-600"></i>
+                        <h2 class="font-bold text-slate-700 text-sm">القوائم النشطة</h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="updateListSubTitle()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 transition flex items-center gap-1">
+                            <i class="fa-solid fa-pen text-indigo-600"></i> تعديل ترويسة التقرير
+                        </button>
+                        <button onclick="createNewList()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-plus"></i> قائمة جديدة
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabs Container -->
+                <div id="listsTabContainer" class="flex items-center gap-2 overflow-x-auto pb-1 custom-scroll">
+                    <!-- Dynamic List Tabs Inserted Here -->
+                </div>
+            </div>
+
+            <!-- Dashboard Stats Summary (1 Col) -->
+            <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-4 rounded-2xl shadow-sm flex flex-col justify-between">
+                <div class="text-xs font-medium text-indigo-200 flex items-center justify-between">
+                    <span>إحصائيات القائمة الحالية</span>
+                    <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <div class="grid grid-cols-2 gap-2 my-2 text-center">
+                    <div class="bg-white/10 rounded-lg p-2 backdrop-blur-sm">
+                        <div class="text-xs text-indigo-200">عدد المدخلات</div>
+                        <div id="statRawCount" class="text-lg font-bold">0</div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-2 backdrop-blur-sm">
+                        <div class="text-xs text-indigo-200">الأصناف المدمجة</div>
+                        <div id="statMergedCount" class="text-lg font-bold text-amber-300">0</div>
+                    </div>
+                </div>
+                <div class="bg-white/10 rounded-lg p-2 text-center backdrop-blur-sm">
+                    <span class="text-xs text-indigo-200">إجمالي الوزن: </span>
+                    <span id="statTotalWeight" class="text-base font-extrabold text-emerald-300">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Headers / Columns Controls Panel -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-600"></i>
+                    <h3 class="font-bold text-slate-700 text-sm">أعمدة البيانات وتصنيف الدمج</h3>
+                    <span class="text-xs text-slate-500">(يمكنك إضافة/حذف الأعمدة وتعديل مسمياتها)</span>
+                </div>
+                <button onclick="addNewHeaderPrompt()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 transition flex items-center gap-1">
+                    <i class="fa-solid fa-plus text-indigo-600"></i> إضافة عمود جديد
+                </button>
+            </div>
+            
+            <div id="headersContainer" class="flex flex-wrap gap-2 items-center">
+                <!-- Dynamic Header Pills Inserted Here -->
+            </div>
+        </div>
+
+        <!-- Main Workspace: Left (Input Table) & Right (Live Aggregated Table) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- Left Panel: Raw Entry Table & Fast Actions (7 Cols) -->
+            <div class="lg:col-span-7 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-indigo-600"></i>
+                        <h3 class="font-bold text-slate-800 text-base">مدخلات الأصناف العشوائية</h3>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button onclick="sortItemsAutomatically()" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1 font-semibold shadow-sm" title="ترتيب الأصناف تلقائياً حسب النوع ثم الجرام تصاعدياً">
+                            <i class="fa-solid fa-arrow-down-short-wide text-amber-600"></i> ترتيب تلقائي
+                        </button>
+                        <button onclick="restoreOriginalOrder()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1 font-semibold shadow-sm" title="استرجاع الترتيب الأصلي حسب الإدخال الأول">
+                            <i class="fa-solid fa-rotate-left text-slate-600"></i> استرجاع الترتيب الأصلي
+                        </button>
+                        <button onclick="openBulkPasteModal()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1">
+                            <i class="fa-solid fa-paste"></i> لصق Excel
+                        </button>
+                        <button onclick="addNewRow()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-plus"></i> إضافة صنف
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Input Table -->
+                <div class="overflow-x-auto custom-scroll min-h-[300px] max-h-[550px]">
+                    <table class="w-full text-right text-xs border-collapse">
+                        <thead>
+                            <tr id="rawTableHeader" class="bg-slate-100 text-slate-600 border-b border-slate-200">
+                                <!-- Dynamic Th Header Columns -->
+                            </tr>
+                        </thead>
+                        <tbody id="rawTableBody" class="divide-y divide-slate-100">
+                            <!-- Dynamic Input Rows -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-between items-center text-xs text-slate-500 pt-2 border-t flex-wrap gap-2">
+                    <span>* الأكواد التسلسلية ثابتة ومحمية من التلخبط أثناء الترتيب، ويمكنك استرجاع الترتيب الأصلي في أي وقت.</span>
+                    <button onclick="clearCurrentListItems()" class="text-rose-600 hover:text-rose-800 transition flex items-center gap-1">
+                        <i class="fa-solid fa-trash-can"></i> مسح مدخلات هذه القائمة
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Aggregated Final Results & Export Actions (5 Cols) -->
+            <div class="lg:col-span-5 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-4 sticky top-20">
+                
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i>
+                        <h3 class="font-bold text-slate-800 text-base">النتيجة النهائية المدمجة</h3>
+                    </div>
+                    <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">تحديث لحظي</span>
+                </div>
+
+                <!-- Search & Filter in Aggregated Results -->
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute right-3 top-2.5 text-slate-400 text-xs"></i>
+                    <input type="text" id="searchInput" oninput="renderAggregatedTable()" placeholder="بحث سريع في الأصناف المدمجة..." class="w-full text-xs pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Aggregated Printable/Exportable Card Container -->
+                <div id="exportableArea" class="bg-white p-3 rounded-xl border border-slate-200 shadow-inner overflow-x-auto custom-scroll max-h-[420px]">
+                    <!-- Dynamic Tables Rendered Here -->
+                </div>
+
+                <!-- Export & Share Control Panel Buttons with Preview trigger -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    <button onclick="triggerExportPreview('pdf')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold py-2 px-2 rounded-lg transition flex items-center justify-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
+                    </button>
+                    <button onclick="triggerExportPreview('image')" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold py-2 px-2 rounded-lg transition flex items-center justify-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-file-image"></i> صورة
+                    </button>
+                    <button onclick="triggerExportPreview('word')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-2 rounded-lg transition flex items-center justify-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-file-word"></i> Word
+                    </button>
+                    <button onclick="triggerExportPreview('telegram')" id="btnTelegram" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2 px-2 rounded-lg transition flex items-center justify-center gap-1 shadow-sm">
+                        <i class="fa-paper-plane"></i> تليجرام
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal: Bulk Paste from Excel -->
+    <div id="bulkPasteModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col">
+            <div class="bg-indigo-900 text-white px-4 py-3 flex justify-between items-center">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-paste text-amber-400"></i> لصق متعدد من Excel / Google Sheets
+                </h3>
+                <button onclick="closeBulkPasteModal()" class="text-slate-300 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-4 flex flex-col gap-3">
+                <p class="text-xs text-slate-600">
+                    قم بنسخ الجدول من Excel واللصق هنا مباشرة. تأكد أن الترتيب يطابق ترتيب الأعمدة المعرفة في القائمة:
+                    <span id="pasteColumnsGuide" class="font-bold text-indigo-700"></span>
+                </p>
+                <textarea id="bulkPasteTextarea" rows="8" placeholder="النقاط هنا (أعمدة مفصولة بـ Tab)..." class="w-full text-xs p-3 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 custom-scroll"></textarea>
+            </div>
+            <div class="bg-slate-50 px-4 py-3 border-t flex justify-end gap-2">
+                <button onclick="closeBulkPasteModal()" class="px-4 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">إلغاء</button>
+                <button onclick="processBulkPaste()" class="px-4 py-1.5 text-xs bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg font-semibold">معالجة وإضافة</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Export Preview Modal -->
+    <div id="previewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col modal-enter">
+            <!-- Modal Header -->
+            <div class="bg-slate-900 text-white px-5 py-3.5 flex justify-between items-center border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <span id="previewModalBadge" class="bg-indigo-500 text-white text-xs px-2.5 py-1 rounded-full font-bold">معاينة</span>
+                    <h3 id="previewModalTitle" class="font-bold text-base text-slate-100">معاينة المستند قبل التصدير</h3>
+                </div>
+                <button onclick="closePreviewModal()" class="text-slate-400 hover:text-white transition p-1"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            
+            <!-- Modal Content Preview Container -->
+            <div class="p-6 overflow-y-auto custom-scroll bg-slate-100 flex justify-center items-start flex-1 min-h-[300px]">
+                <div id="previewModalContent" class="bg-white shadow-lg rounded-lg overflow-hidden p-2 max-w-full">
+                    <!-- Dynamic Printable Table Preview Rendered Here -->
+                </div>
+            </div>
+
+            <!-- Modal Footer Controls -->
+            <div class="bg-white px-6 py-4 border-t border-slate-200 flex flex-wrap justify-between items-center gap-3">
+                <!-- Custom File Name Input -->
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <label for="exportFileName" class="text-xs font-bold text-slate-600 whitespace-nowrap"><i class="fa-solid fa-pen-to-square text-indigo-600"></i> اسم الملف:</label>
+                    <input type="text" id="exportFileName" placeholder="اسم الملف قبل التحميل..." class="text-xs px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64">
+                </div>
+
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button onclick="closePreviewModal()" class="px-4 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-xl transition font-medium">إلغاء</button>
+                    <button id="previewModalActionBtn" class="px-5 py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-check"></i> تأكيد الأكشن
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Modular Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/exporter.js"></script>
+</body>
+</html>
