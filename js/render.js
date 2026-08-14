@@ -112,16 +112,16 @@ function renderRawTable() {
     const categories = list.categories || defaultCategories;
 
     // Header HTML with Reorder, Category Select & Editable Code
-    let thHTML = '<th class="p-2 border border-slate-200 text-center w-10" title="ترتيب وتحريك الأسطر يدوياً"><i class="fa-solid fa-up-down text-indigo-600"></i></th>';
-    thHTML += '<th class="p-2 border border-slate-200 text-center w-36" title="تحديد الجدول التجميعي للصنف">الجدول / التصنيف</th>';
-    thHTML += '<th class="p-2 border border-slate-200 text-center w-16" title="كود الصنف (قابل للتعديل يدويًا)">الكود #</th>';
+    let thHTML = '<th class="p-2 border border-slate-200 text-center w-10 whitespace-nowrap" title="ترتيب وتحريك الأسطر يدوياً"><i class="fa-solid fa-up-down text-indigo-600"></i></th>';
+    thHTML += '<th class="p-2 border border-slate-200 text-center min-w-[140px] whitespace-nowrap" title="تحديد الجدول التجميعي للصنف">الجدول / التصنيف</th>';
+    thHTML += '<th class="p-2 border border-slate-200 text-center w-16 whitespace-nowrap" title="كود الصنف (قابل للتعديل يدويًا)">الكود #</th>';
     list.headers.forEach(h => {
         const suffix = getUnitSuffix(h.name);
         const suffixBadge = suffix ? `<span class="text-[10px] text-indigo-500 font-normal ml-1">(${suffix})</span>` : '';
-        const minW = (h.name.includes('النوع') || h.role === 'group') ? 'min-w-[150px]' : '';
-        thHTML += `<th class="p-2 border border-slate-200 ${minW}">${h.name}${suffixBadge}</th>`;
+        const minW = (h.name.includes('النوع') || h.role === 'group') ? 'min-w-[160px]' : '';
+        thHTML += `<th class="p-2 border border-slate-200 whitespace-nowrap ${minW}">${h.name}${suffixBadge}</th>`;
     });
-    thHTML += '<th class="p-2 border border-slate-200 text-center w-10"><i class="fa-solid fa-gear"></i></th>';
+    thHTML += '<th class="p-2 border border-slate-200 text-center w-10 whitespace-nowrap"><i class="fa-solid fa-gear"></i></th>';
     thead.innerHTML = thHTML;
 
     // Rows HTML
@@ -142,7 +142,7 @@ function renderRawTable() {
         
         // Manual Move Controls & Grip Handle
         let tdHTML = `
-            <td class="p-1 border border-slate-200 text-center select-none">
+            <td class="p-1 border border-slate-200 text-center select-none whitespace-nowrap">
                 <div class="flex items-center justify-center gap-1 text-slate-400">
                     <i class="fa-solid fa-grip-vertical text-slate-300 group-hover:text-indigo-600 transition cursor-grab" title="اسحب لتحريك السطر"></i>
                     <div class="flex flex-col">
@@ -162,7 +162,7 @@ function renderRawTable() {
         catOptions += `<option value="action_add_new" class="font-bold text-indigo-600 bg-indigo-50">+ إضافة جدول جديد...</option>`;
 
         tdHTML += `
-            <td class="p-1 border border-slate-200 text-center">
+            <td class="p-1 border border-slate-200 text-center min-w-[140px]">
                 <select onchange="updateItemCategory('${item.id}', this.value)" class="w-full text-[11px] p-1.5 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-indigo-500 font-bold ${isSpecial ? 'text-amber-800' : 'text-indigo-900'}">
                     ${catOptions}
                 </select>
@@ -172,7 +172,7 @@ function renderRawTable() {
         // Editable Item Code Input Field
         const currentCode = item.itemCode || item.serialNo || (idx + 1);
         tdHTML += `
-            <td class="p-1 border border-slate-200 text-center">
+            <td class="p-1 border border-slate-200 text-center whitespace-nowrap">
                 <input type="text" value="${currentCode}" 
                     onchange="updateItemCode('${item.id}', this.value)"
                     placeholder="كود"
@@ -187,7 +187,7 @@ function renderRawTable() {
 
             if (isNum) {
                 tdHTML += `
-                    <td class="p-1 border border-slate-200">
+                    <td class="p-1 border border-slate-200 whitespace-nowrap">
                         <input type="number" value="${val}" 
                             onchange="updateItemValue('${item.id}', '${h.id}', this.value)"
                             placeholder="0"
@@ -197,7 +197,7 @@ function renderRawTable() {
             } else {
                 // Dynamic Auto-Resizing Textarea for "النوع" & Text columns
                 tdHTML += `
-                    <td class="p-1 border border-slate-200 min-w-[140px]">
+                    <td class="p-1 border border-slate-200 min-w-[150px]">
                         <textarea rows="1"
                             oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';updateItemValue('${item.id}', '${h.id}', this.value)"
                             onchange="updateItemValue('${item.id}', '${h.id}', this.value)"
@@ -210,7 +210,7 @@ function renderRawTable() {
             }
         });
         tdHTML += `
-            <td class="p-1 border border-slate-200 text-center">
+            <td class="p-1 border border-slate-200 text-center whitespace-nowrap">
                 <button onclick="deleteRow('${item.id}')" class="text-slate-400 hover:text-rose-600 transition p-1"><i class="fa-solid fa-trash-can"></i></button>
             </td>
         `;
@@ -253,7 +253,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpec
             if (h.role === 'group') {
                 const val = row.groupValues[h.id] || '';
                 const formatted = formatCellValueWithUnit(val, h.name, false);
-                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold whitespace-normal break-words leading-relaxed text-slate-800">${formatted}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold whitespace-normal break-words leading-relaxed text-slate-800 min-w-[130px]">${formatted}</td>`;
             } else if (h.role === 'sum') {
                 const val = row.sumValues[h.id] || 0;
                 totals[h.id] += val;
@@ -272,7 +272,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpec
     return { html: rowsHTML, totals };
 }
 
-// Render Aggregated Final Results Table (Right Panel) with Multi-Table & Text Wrap Support
+// Render Aggregated Final Results Table (Right Panel) with Multi-Table & Explicit Edit/Delete Buttons
 function renderAggregatedTable() {
     const list = getActiveList();
     const resultCategories = computeAggregatedData();
@@ -288,12 +288,17 @@ function renderAggregatedTable() {
     if (!exportArea) return;
 
     let containerHTML = `
-        <div class="text-center mb-3 border-b pb-2">
-            <h4 class="font-bold text-slate-800 text-sm flex items-center justify-center gap-1.5">
-                <span>${list.title}</span>
-                <i class="fa-solid fa-pen text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer" onclick="renameList('${list.id}')" title="تعديل اسم القائمة"></i>
-            </h4>
-            <p class="text-[10px] text-slate-400" id="exportDate">تاريخ التقرير: ${new Date().toLocaleDateString('en-GB')}</p>
+        <div class="flex items-center justify-between border-b pb-2 mb-3">
+            <div class="text-right">
+                <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                    <span>${list.title}</span>
+                    <i class="fa-solid fa-pen text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer" onclick="renameList('${list.id}')" title="تعديل اسم القائمة"></i>
+                </h4>
+                <p class="text-[10px] text-slate-400" id="exportDate">تاريخ التقرير: ${new Date().toLocaleDateString('en-GB')}</p>
+            </div>
+            <button onclick="addNewTableCategoryPrompt()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs px-2.5 py-1 rounded-lg border border-indigo-200 font-bold transition flex items-center gap-1">
+                <i class="fa-solid fa-plus text-indigo-600"></i> إضافة جدول جديد
+            </button>
         </div>
     `;
 
@@ -314,14 +319,21 @@ function renderAggregatedTable() {
 
         containerHTML += `
             <div class="mb-5 border ${borderTheme} rounded-xl overflow-hidden shadow-sm">
-                <div class="flex justify-between items-center px-3 py-2 ${isSpecial ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-800'} border-b">
-                    <h5 class="font-bold text-xs flex items-center gap-1.5">
+                <div class="flex flex-wrap justify-between items-center px-3 py-2 ${isSpecial ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-800'} border-b gap-2">
+                    <div class="flex items-center gap-2">
                         <i class="fa-solid ${isSpecial ? 'fa-square-check text-amber-600' : 'fa-table text-indigo-600'}"></i>
-                        <span>${catGroup.name}</span>
-                        <i class="fa-solid fa-pen text-[9px] text-slate-400 hover:text-indigo-600 cursor-pointer" onclick="renameTableCategory('${catGroup.id}')" title="تعديل اسم هذا الجدول"></i>
-                        ${resultCategories.length > 1 ? `<i class="fa-solid fa-trash-can text-[9px] text-slate-400 hover:text-rose-600 cursor-pointer" onclick="deleteTableCategory('${catGroup.id}')" title="حذف هذا الجدول"></i>` : ''}
-                    </h5>
-                    <span class="text-[10px] font-bold ${isSpecial ? 'bg-amber-200 text-amber-900' : 'bg-indigo-100 text-indigo-800'} px-2 py-0.5 rounded-full">
+                        <span class="font-extrabold text-xs">${catGroup.name}</span>
+                        <div class="flex items-center gap-1">
+                            <button onclick="renameTableCategory('${catGroup.id}')" class="text-indigo-700 hover:text-indigo-900 bg-white border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold shadow-xs flex items-center gap-1" title="تعديل اسم هذا الجدول">
+                                <i class="fa-solid fa-pen text-[9px]"></i> تعديل الاسم
+                            </button>
+                            ${resultCategories.length > 1 ? `
+                            <button onclick="deleteTableCategory('${catGroup.id}')" class="text-rose-600 hover:text-rose-800 bg-white border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold shadow-xs flex items-center gap-1" title="حذف هذا الجدول">
+                                <i class="fa-solid fa-trash-can text-[9px]"></i> حذف
+                            </button>` : ''}
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-bold ${isSpecial ? 'bg-amber-200 text-amber-900' : 'bg-indigo-100 text-indigo-800'} px-2.5 py-1 rounded-full whitespace-nowrap">
                         إجمالي الجدول: ${sumHeader ? formatCellValueWithUnit(catGroup.totalWeight, sumHeader.name, true) : formatEnglishNumber(catGroup.totalWeight)}
                     </span>
                 </div>
@@ -329,28 +341,29 @@ function renderAggregatedTable() {
                 <table class="w-full text-right text-xs border-collapse">
                     <thead>
                         <tr class="${headerBg}">
-                            <th class="p-1.5 border border-slate-700 text-center w-8">م</th>
+                            <th class="p-1.5 border border-slate-700 text-center w-8 whitespace-nowrap">م</th>
         `;
 
         list.headers.forEach(h => {
-            containerHTML += `<th class="p-1.5 border border-slate-700">${h.name}</th>`;
+            const minW = (h.name.includes('النوع') || h.role === 'group') ? 'min-w-[130px]' : '';
+            containerHTML += `<th class="p-1.5 border border-slate-700 whitespace-nowrap ${minW}">${h.name}</th>`;
         });
-        containerHTML += `<th class="p-1.5 border border-slate-700 text-center w-12">عدد</th></tr></thead><tbody>`;
+        containerHTML += `<th class="p-1.5 border border-slate-700 text-center w-12 whitespace-nowrap">عدد</th></tr></thead><tbody>`;
 
         const sectionRes = buildAggregatedTableSection(catGroup.aggregated, list.headers, filterText, isSpecial);
         containerHTML += sectionRes.html;
 
-        containerHTML += `</tbody><tfoot class="${isSpecial ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-800'} font-bold border-t-2"><tr><td class="p-2 border text-center">مجموع الجدول</td>`;
+        containerHTML += `</tbody><tfoot class="${isSpecial ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-800'} font-bold border-t-2"><tr><td class="p-2 border text-center whitespace-nowrap">مجموع الجدول</td>`;
         
         list.headers.forEach(h => {
             if (h.role === 'sum') {
                 const formattedTotal = formatCellValueWithUnit(sectionRes.totals[h.id] || 0, h.name, true);
-                containerHTML += `<td class="p-2 border font-extrabold ${isSpecial ? 'text-amber-900' : 'text-emerald-800'}">${formattedTotal}</td>`;
+                containerHTML += `<td class="p-2 border font-extrabold ${isSpecial ? 'text-amber-900' : 'text-emerald-800'} whitespace-nowrap">${formattedTotal}</td>`;
             } else {
-                containerHTML += `<td class="p-2 border text-slate-400">-</td>`;
+                containerHTML += `<td class="p-2 border text-slate-400 text-center">-</td>`;
             }
         });
-        containerHTML += `<td class="p-2 border text-center">-</td></tr></tfoot></table></div>`;
+        containerHTML += `<td class="p-2 border text-center whitespace-nowrap">-</td></tr></tfoot></table></div>`;
     });
 
     // Grand Total Summary Card at Bottom
@@ -358,11 +371,11 @@ function renderAggregatedTable() {
         <div class="mt-4 p-3 bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-xl shadow-md border border-indigo-700 flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-calculator text-amber-400 text-base"></i>
-                <span class="font-extrabold text-xs">إجمالي الشحنة الكلي (جميع الجداول):</span>
+                <span class="font-extrabold text-xs whitespace-nowrap">إجمالي الشحنة الكلي (جميع الجداول):</span>
             </div>
-            <div class="flex items-center gap-3">
-                <span class="text-xs bg-white/10 px-2.5 py-1 rounded-lg">عدد الرولات/البكرات: <strong class="text-amber-300 font-bold">${formatEnglishNumber(grandTotalCount)}</strong></span>
-                <span class="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-lg border border-emerald-500/30">الوزن الإجمالي الكلي: <strong class="text-emerald-300 font-extrabold">${sumHeader ? formatCellValueWithUnit(grandTotalWeight, sumHeader.name, true) : formatEnglishNumber(grandTotalWeight)}</strong></span>
+            <div class="flex items-center gap-3 flex-wrap">
+                <span class="text-xs bg-white/10 px-2.5 py-1 rounded-lg whitespace-nowrap">عدد الرولات/البكرات: <strong class="text-amber-300 font-bold">${formatEnglishNumber(grandTotalCount)}</strong></span>
+                <span class="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-lg border border-emerald-500/30 whitespace-nowrap">الوزن الإجمالي الكلي: <strong class="text-emerald-300 font-extrabold">${sumHeader ? formatCellValueWithUnit(grandTotalWeight, sumHeader.name, true) : formatEnglishNumber(grandTotalWeight)}</strong></span>
             </div>
         </div>
     `;
