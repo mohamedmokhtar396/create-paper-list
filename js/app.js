@@ -27,9 +27,13 @@ function getActiveList() {
     }
     
     if (!list.subTitle) list.subTitle = 'تقرير الأصناف واللوائح المدمجة';
-    if (!list.specialTableTitle) list.specialTableTitle = 'الأصناف المختلفة / الهوالك';
     
-    // Ensure every list has valid headers and items
+    // Ensure list has categories configured
+    if (!list.categories || !Array.isArray(list.categories) || list.categories.length === 0) {
+        list.categories = JSON.parse(JSON.stringify(defaultCategories));
+    }
+
+    // Ensure list has headers
     if (!list.headers || !Array.isArray(list.headers) || list.headers.length === 0) {
         list.headers = JSON.parse(JSON.stringify(defaultState.lists[0].headers));
     }
@@ -37,10 +41,15 @@ function getActiveList() {
         list.items = [];
     }
 
-    // Ensure every item has originalOrder & serialNo initialized
+    // Ensure every item has originalOrder, serialNo, itemCode, and categoryId
+    const defaultCatId = list.categories[0] ? list.categories[0].id : 'cat_main_1';
     list.items.forEach((item, idx) => {
         if (item.originalOrder === undefined) item.originalOrder = idx + 1;
         if (item.serialNo === undefined) item.serialNo = item.originalOrder;
+        if (item.itemCode === undefined) item.itemCode = (item.serialNo || idx + 1).toString();
+        if (!item.categoryId) {
+            item.categoryId = item.isSpecial ? 'cat_special' : defaultCatId;
+        }
     });
 
     return list;
@@ -72,8 +81,8 @@ function createNewList() {
         id: 'list_' + Date.now(),
         title: name.trim(),
         subTitle: 'تقرير الأصناف واللوائح المدمجة',
-        specialTableTitle: 'الأصناف المختلفة / الهوالك',
         createdAt: new Date().toLocaleDateString('en-GB'),
+        categories: JSON.parse(JSON.stringify(currentList.categories)),
         headers: JSON.parse(JSON.stringify(currentList.headers)),
         items: []
     };
@@ -102,12 +111,51 @@ function updateListSubTitle() {
     }
 }
 
-function updateSpecialTableTitle() {
+// Custom Table Category Management
+function addNewTableCategoryPrompt() {
+    const name = prompt('أدخل اسم الجدول الجديد (مثال: برستول كوشيه، ظهر كرافت، ورق سلوفان...):');
+    if (!name || !name.trim()) return;
     const list = getActiveList();
-    const newTitle = prompt('تعديل عنوان جدول الأصناف المحددة / الهوالك:', list.specialTableTitle || 'الأصناف المختلفة / الهوالك');
-    if (newTitle !== null) {
-        list.specialTableTitle = newTitle.trim();
+    const newCat = {
+        id: 'cat_' + Date.now(),
+        name: name.trim()
+    };
+    list.categories.push(newCat);
+    renderApp();
+}
+
+function renameTableCategory(catId) {
+    const list = getActiveList();
+    const cat = list.categories.find(c => c.id === catId);
+    if (!cat) return;
+    const newName = prompt('تعديل اسم الجدول:', cat.name);
+    if (newName && newName.trim()) {
+        cat.name = newName.trim();
         renderApp();
+    }
+}
+
+function updateItemCategory(itemId, categoryId) {
+    const list = getActiveList();
+    const item = list.items.find(i => i.id === itemId);
+    if (item) {
+        item.categoryId = categoryId;
+        // Keep isSpecial synced if category is special
+        item.isSpecial = (categoryId === 'cat_special');
+        renderAggregatedTable();
+        updateStats();
+        saveToLocalStorage();
+    }
+}
+
+function updateItemCode(itemId, newCode) {
+    const list = getActiveList();
+    const item = list.items.find(i => i.id === itemId);
+    if (item) {
+        item.itemCode = toEnglishDigits(newCode.trim());
+        renderRawTable();
+        renderAggregatedTable();
+        saveToLocalStorage();
     }
 }
 
@@ -128,7 +176,7 @@ function deleteList(id, e) {
 }
 
 function resetDefaultDataPrompt() {
-    if (confirm('هل تريد استرجاع قائمة الأصناف الرئيسية الكاملة (27 صنفاً من برستول كوشيه السويس)؟')) {
+    if (confirm('هل تريد استرجاع قائمة الأصناف الرئيسية الكاملة (32 بكرة فردية مقسمة على جداول مخصصة)؟')) {
         appData = JSON.parse(JSON.stringify(defaultState));
         renderApp();
     }
@@ -265,6 +313,11 @@ function toggleItemSpecial(itemId, isChecked) {
     const item = list.items.find(i => i.id === itemId);
     if (item) {
         item.isSpecial = isChecked;
+        if (isChecked) {
+            item.categoryId = 'cat_special';
+        } else if (item.categoryId === 'cat_special') {
+            item.categoryId = list.categories[0] ? list.categories[0].id : 'cat_main_1';
+        }
         renderAggregatedTable();
         updateStats();
         saveToLocalStorage();
@@ -297,10 +350,14 @@ function addNewRow() {
         ? Math.max(...list.items.map(i => i.originalOrder || 0)) + 1 
         : 1;
 
+    const defaultCatId = list.categories[0] ? list.categories[0].id : 'cat_main_1';
+
     const newItem = {
         id: 'i_' + Date.now(),
         originalOrder: nextOrder,
         serialNo: nextOrder,
+        itemCode: nextOrder.toString(),
+        categoryId: defaultCatId,
         isSpecial: false
     };
 
@@ -385,16 +442,55 @@ function aggregateItemArray(items, headers) {
     return Array.from(map.values());
 }
 
-// Live Aggregation Engine (Returns { main: [], special: [] })
+// Live Multi-Category Aggregation Engine
 function computeAggregatedData() {
     const list = getActiveList();
-    const mainItems = (list.items || []).filter(i => !i.isSpecial);
-    const specialItems = (list.items || []).filter(i => i.isSpecial);
+    const categories = list.categories || defaultCategories;
 
-    return {
-        main: aggregateItemArray(mainItems, list.headers),
-        special: aggregateItemArray(specialItems, list.headers)
-    };
+    const resultCategories = [];
+
+    categories.forEach(cat => {
+        const catItems = (list.items || []).filter(i => i.categoryId === cat.id);
+        const aggregated = aggregateItemArray(catItems, list.headers);
+        
+        // Calculate totals for category
+        const sumHeader = list.headers.find(h => h.role === 'sum');
+        let categoryTotalWeight = 0;
+        if (sumHeader) {
+            categoryTotalWeight = aggregated.reduce((acc, curr) => acc + (curr.sumValues[sumHeader.id] || 0), 0);
+        }
+
+        resultCategories.push({
+            id: cat.id,
+            name: cat.name,
+            isSpecial: cat.id === 'cat_special',
+            aggregated: aggregated,
+            rawItemCount: catItems.length,
+            totalWeight: categoryTotalWeight
+        });
+    });
+
+    // Catch any uncategorized items
+    const catIds = categories.map(c => c.id);
+    const uncategorizedItems = (list.items || []).filter(i => !catIds.includes(i.categoryId));
+    if (uncategorizedItems.length > 0) {
+        const aggregated = aggregateItemArray(uncategorizedItems, list.headers);
+        const sumHeader = list.headers.find(h => h.role === 'sum');
+        let totalW = 0;
+        if (sumHeader) {
+            totalW = aggregated.reduce((acc, curr) => acc + (curr.sumValues[sumHeader.id] || 0), 0);
+        }
+        resultCategories.unshift({
+            id: 'cat_default',
+            name: 'أصناف عامة',
+            isSpecial: false,
+            aggregated: aggregated,
+            rawItemCount: uncategorizedItems.length,
+            totalWeight: totalW
+        });
+    }
+
+    return resultCategories;
 }
 
 // Bulk Paste Modal Functions
@@ -419,7 +515,8 @@ function processBulkPaste() {
     let startOrder = list.items.length > 0 
         ? Math.max(...list.items.map(i => i.originalOrder || 0)) + 1 
         : 1;
-    
+    const defaultCatId = list.categories[0] ? list.categories[0].id : 'cat_main_1';
+
     lines.forEach(line => {
         if (!line.trim()) return;
         const parts = line.split('\t'); // tab separated
@@ -427,6 +524,8 @@ function processBulkPaste() {
             id: 'i_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
             originalOrder: startOrder,
             serialNo: startOrder,
+            itemCode: startOrder.toString(),
+            categoryId: defaultCatId,
             isSpecial: false
         };
         startOrder++;

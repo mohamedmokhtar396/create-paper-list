@@ -76,11 +76,12 @@ function getExportFileName(fallbackName = 'تقرير_الأصناف', extension
     return name;
 }
 
-// Helper: Build a Clean, Full-Width HTML Element for Printing & Exporting
+// Helper: Build a Clean, Full-Width HTML Element for Printing & Exporting Multi-Tables
 function buildCleanExportHTML() {
     const list = getActiveList();
-    const { main, special } = computeAggregatedData();
+    const resultCategories = computeAggregatedData();
     const sumHeaders = list.headers.filter(h => h.role === 'sum');
+    const sumHeader = list.headers.find(h => h.role === 'sum');
 
     const wrapper = document.createElement('div');
     wrapper.id = 'pdfExportContainer';
@@ -93,7 +94,7 @@ function buildCleanExportHTML() {
     wrapper.style.margin = '0 auto';
     wrapper.style.boxSizing = 'border-box';
 
-    // Title & Metadata
+    // Title & Metadata Header
     let html = `
         <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px;">
             <h2 style="margin: 0 0 6px 0; color: #0f172a; font-size: 20px; font-weight: 800;">${list.title}</h2>
@@ -102,79 +103,96 @@ function buildCleanExportHTML() {
         </div>
     `;
 
-    // Function to render table HTML string for an aggregated set
-    const renderTableHTML = (items, tableTitle = '', isSpecialTable = false) => {
-        let tableHTML = '';
-        if (tableTitle) {
-            tableHTML += `<h3 style="margin: 16px 0 8px 0; color: ${isSpecialTable ? '#92400e' : '#1e293b'}; font-size: 14px; font-weight: 800;">${tableTitle}</h3>`;
-        }
+    let grandTotalWeight = 0;
+    let grandTotalCount = 0;
 
-        tableHTML += `
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
-                <thead>
-                    <tr style="background-color: ${isSpecialTable ? '#78350f' : '#1e293b'}; color: #ffffff;">
-                        <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 35px; font-size: 11px;">م</th>
+    // Loop through each active table category
+    resultCategories.forEach((catGroup) => {
+        if (catGroup.rawItemCount === 0 && resultCategories.length > 1) return;
+
+        grandTotalWeight += catGroup.totalWeight;
+        grandTotalCount += catGroup.rawItemCount;
+
+        const isSpecial = catGroup.isSpecial;
+        const tableHeaderBg = isSpecial ? '#78350f' : '#1e293b';
+        const titleColor = isSpecial ? '#92400e' : '#0f172a';
+
+        html += `
+            <div style="margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h3 style="margin: 0; color: ${titleColor}; font-size: 14px; font-weight: 800;">${catGroup.name}</h3>
+                    <span style="font-size: 11px; font-weight: bold; color: ${isSpecial ? '#78350f' : '#4338ca'}; background-color: ${isSpecial ? '#fef3c7' : '#e0e7ff'}; padding: 2px 8px; border-radius: 4px;">
+                        إجمالي الجدول: ${sumHeader ? formatCellValueWithUnit(catGroup.totalWeight, sumHeader.name, true) : formatEnglishNumber(catGroup.totalWeight)}
+                    </span>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
+                    <thead>
+                        <tr style="background-color: ${tableHeaderBg}; color: #ffffff;">
+                            <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 35px; font-size: 11px;">م</th>
         `;
 
         list.headers.forEach(h => {
-            tableHTML += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-size: 11px;">${h.name}</th>`;
+            html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-size: 11px;">${h.name}</th>`;
         });
 
-        tableHTML += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 50px; font-size: 11px;">عدد</th></tr></thead><tbody>`;
+        html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 50px; font-size: 11px;">عدد</th></tr></thead><tbody>`;
 
         const totals = {};
         sumHeaders.forEach(h => totals[h.id] = 0);
 
-        if (items.length === 0) {
-            tableHTML += `<tr><td colspan="${list.headers.length + 2}" style="border: 1px solid #cbd5e1; text-align: center; color: #94a3b8; padding: 15px; font-size: 11px;">لا توجد بيانات.</td></tr>`;
+        if (catGroup.aggregated.length === 0) {
+            html += `<tr><td colspan="${list.headers.length + 2}" style="border: 1px solid #cbd5e1; text-align: center; color: #94a3b8; padding: 15px; font-size: 11px;">لا توجد بيانات.</td></tr>`;
         } else {
-            items.forEach((row, idx) => {
-                tableHTML += `<tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : (isSpecialTable ? '#fffbeb' : '#f8fafc')};">`;
-                tableHTML += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #475569; font-size: 11px;">${formatEnglishNumber(idx + 1, false)}</td>`;
+            catGroup.aggregated.forEach((row, idx) => {
+                html += `<tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : (isSpecial ? '#fffbeb' : '#f8fafc')};">`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #475569; font-size: 11px;">${formatEnglishNumber(idx + 1, false)}</td>`;
                 
                 list.headers.forEach(h => {
                     if (h.role === 'group') {
                         const val = row.groupValues[h.id] || '';
                         const formatted = formatCellValueWithUnit(val, h.name, false);
-                        tableHTML += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 600; font-size: 11px;">${formatted}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 600; font-size: 11px;">${formatted}</td>`;
                     } else if (h.role === 'sum') {
                         const val = row.sumValues[h.id] || 0;
                         totals[h.id] += val;
                         const formatted = formatCellValueWithUnit(val, h.name, true);
-                        tableHTML += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 700; color: ${isSpecialTable ? '#92400e' : '#4338ca'}; font-size: 11px;">${formatted}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 700; color: ${isSpecial ? '#92400e' : '#4338ca'}; font-size: 11px;">${formatted}</td>`;
                     } else {
                         const valArr = (row.infoValues[h.id] || []).filter(Boolean);
                         const valStr = valArr.map(v => formatCellValueWithUnit(v, h.name, false)).join(', ');
-                        tableHTML += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; color: #64748b; font-size: 10px;">${valStr || '-'}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; color: #64748b; font-size: 10px;">${valStr || '-'}</td>`;
                     }
                 });
 
-                tableHTML += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #b45309; background-color: #fef3c7; font-size: 11px;">${formatEnglishNumber(row.count, false)}</td></tr>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #b45309; background-color: #fef3c7; font-size: 11px;">${formatEnglishNumber(row.count, false)}</td></tr>`;
             });
         }
 
-        tableHTML += `</tbody><tfoot><tr style="background-color: ${isSpecialTable ? '#fef3c7' : '#f1f5f9'}; font-weight: bold;"><td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-size: 11px;">المجموع</td>`;
+        html += `</tbody><tfoot><tr style="background-color: ${isSpecial ? '#fef3c7' : '#f1f5f9'}; font-weight: bold;"><td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-size: 11px;">المجموع</td>`;
 
         list.headers.forEach(h => {
             if (h.role === 'sum') {
                 const formattedTotal = formatCellValueWithUnit(totals[h.id], h.name, true);
-                tableHTML += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-weight: 800; color: ${isSpecialTable ? '#78350f' : '#047857'}; font-size: 11px;">${formattedTotal}</td>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-weight: 800; color: ${isSpecial ? '#78350f' : '#047857'}; font-size: 11px;">${formattedTotal}</td>`;
             } else {
-                tableHTML += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; color: #94a3b8; font-size: 11px;">-</td>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; color: #94a3b8; font-size: 11px;">-</td>`;
             }
         });
 
-        tableHTML += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-size: 11px;">-</td></tr></tfoot></table>`;
-        return tableHTML;
-    };
+        html += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-size: 11px;">-</td></tr></tfoot></table></div>`;
+    });
 
-    // Render Main Table
-    html += renderTableHTML(main, 'الأصناف المدمجة الرئيسية', false);
-
-    // Render Special Table if checked items exist
-    if (special.length > 0) {
-        html += renderTableHTML(special, list.specialTableTitle || 'الأصناف المحددة / الهوالك', true);
-    }
+    // Grand Total Footer Banner
+    html += `
+        <div style="background-color: #0f172a; color: #ffffff; padding: 12px 16px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+            <span style="font-size: 12px; font-weight: bold; color: #facc15;">إجمالي الشحنة الكلي (جميع الجداول):</span>
+            <div style="font-size: 12px;">
+                <span style="margin-left: 15px;">عدد البكرات: <strong>${formatEnglishNumber(grandTotalCount)}</strong></span>
+                <span style="color: #6ee7b7;">الوزن الإجمالي الكلي: <strong>${sumHeader ? formatCellValueWithUnit(grandTotalWeight, sumHeader.name, true) : formatEnglishNumber(grandTotalWeight)}</strong></span>
+            </div>
+        </div>
+    `;
 
     wrapper.innerHTML = html;
     return wrapper;
@@ -251,7 +269,7 @@ function executeWordExport() {
     <head><meta charset='utf-8'><title>${list.title}</title>
     <style>
         body { font-family: Cairo, Arial, sans-serif; direction: rtl; }
-        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; margin-bottom: 15px; }
         th, td { border: 1px solid #333; padding: 6px 10px; text-align: right; font-size: 12px; }
         th { background-color: #1e293b; color: #fff; }
         tfoot td { background-color: #f1f5f9; font-weight: bold; }
@@ -270,13 +288,18 @@ function executeWordExport() {
     closePreviewModal();
 }
 
-// Optimized Telegram PDF File Sending Execution with 20s timeout and fast rendering
+// Optimized Telegram PDF File Sending Execution
 async function executeTelegramPDFExport() {
     const list = getActiveList();
-    const { main, special } = computeAggregatedData();
-    const totalCount = main.length + special.length;
-    const fileName = getExportFileName(`${list.title}_المدمجة`, '.pdf');
+    const resultCategories = computeAggregatedData();
+    let totalCount = 0;
+    let totalWeight = 0;
+    resultCategories.forEach(c => {
+        totalCount += c.rawItemCount;
+        totalWeight += c.totalWeight;
+    });
 
+    const fileName = getExportFileName(`${list.title}_المدمجة`, '.pdf');
     const actionBtn = document.getElementById('previewModalActionBtn');
     const originalText = actionBtn.innerHTML;
 
@@ -307,13 +330,10 @@ async function executeTelegramPDFExport() {
         const sumHeader = list.headers.find(h => h.role === 'sum');
         let totalSumStr = '';
         if (sumHeader) {
-            const mainTotal = main.reduce((acc, curr) => acc + (curr.sumValues[sumHeader.id] || 0), 0);
-            const specialTotal = special.reduce((acc, curr) => acc + (curr.sumValues[sumHeader.id] || 0), 0);
-            const grandTotal = mainTotal + specialTotal;
-            totalSumStr = `\n📊 إجمالي ${sumHeader.name}: ${formatCellValueWithUnit(grandTotal, sumHeader.name, true)}`;
+            totalSumStr = `\n📊 إجمالي الوزن الكلي: ${formatCellValueWithUnit(totalWeight, sumHeader.name, true)}`;
         }
 
-        const caption = `📦 *تقرير الأصناف المدمجة*: ${list.title}\n📅 *التاريخ*: ${new Date().toLocaleDateString('en-GB')}\n📋 *عدد الأصناف المدمجة*: ${formatEnglishNumber(totalCount)}${totalSumStr}`;
+        const caption = `📦 *تقرير الأصناف المدمجة*: ${list.title}\n📅 *التاريخ*: ${new Date().toLocaleDateString('en-GB')}\n📋 *عدد الجداول المخصصة*: ${resultCategories.length}\n🔢 *عدد الرولات الكلي*: ${formatEnglishNumber(totalCount)}${totalSumStr}`;
 
         const formData = new FormData();
         formData.append('chat_id', TELEGRAM_CHAT_ID);

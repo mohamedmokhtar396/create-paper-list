@@ -27,7 +27,7 @@ function renderListTabs() {
     });
 }
 
-// Render Dynamic Header Control Pills
+// Render Dynamic Header Control Pills & Category Adder
 function renderHeadersControl() {
     const list = getActiveList();
     const container = document.getElementById('headersContainer');
@@ -55,17 +55,19 @@ function renderHeadersControl() {
     });
 }
 
-// Render Raw Input Table (Left Panel) with Checkbox, Serial Number & Reordering Drag-and-Drop
+// Render Raw Input Table (Left Panel) with Category Dropdown, Editable Code & Drag-and-Drop
 function renderRawTable() {
     const list = getActiveList();
     const thead = document.getElementById('rawTableHeader');
     const tbody = document.getElementById('rawTableBody');
     if (!thead || !tbody) return;
 
-    // Header HTML with Reorder & Checkbox columns & Serial No
-    let thHTML = '<th class="p-2 border border-slate-200 text-center w-12" title="ترتيب وتحريك الأسطر يدوياً"><i class="fa-solid fa-up-down text-indigo-600"></i></th>';
-    thHTML += '<th class="p-2 border border-slate-200 text-center w-8" title="تحديد كصنف خاص/هوالك لجمعه في جدول منفصل"><i class="fa-solid fa-square-check text-indigo-600"></i></th>';
-    thHTML += '<th class="p-2 border border-slate-200 text-center w-12" title="كود/الرقم التسلسلي الأصلي للصنف">كود #</th>';
+    const categories = list.categories || defaultCategories;
+
+    // Header HTML with Reorder, Category Select & Editable Code
+    let thHTML = '<th class="p-2 border border-slate-200 text-center w-10" title="ترتيب وتحريك الأسطر يدوياً"><i class="fa-solid fa-up-down text-indigo-600"></i></th>';
+    thHTML += '<th class="p-2 border border-slate-200 text-center w-28" title="تحديد الجدول أو تصنيف الصنف">الجدول / التصنيف</th>';
+    thHTML += '<th class="p-2 border border-slate-200 text-center w-16" title="كود الصنف (قابل للتعديل يدويًا)">الكود #</th>';
     list.headers.forEach(h => {
         const suffix = getUnitSuffix(h.name);
         const suffixBadge = suffix ? `<span class="text-[10px] text-indigo-500 font-normal ml-1">(${suffix})</span>` : '';
@@ -82,8 +84,9 @@ function renderRawTable() {
     }
 
     list.items.forEach((item, idx) => {
+        const isSpecial = item.categoryId === 'cat_special' || item.isSpecial;
         const tr = document.createElement('tr');
-        tr.className = item.isSpecial ? "bg-amber-50/60 hover:bg-amber-100/60 transition group cursor-grab" : "hover:bg-indigo-50/50 transition group cursor-grab";
+        tr.className = isSpecial ? "bg-amber-50/60 hover:bg-amber-100/60 transition group cursor-grab" : "hover:bg-indigo-50/50 transition group cursor-grab";
         tr.setAttribute('draggable', 'true');
         tr.setAttribute('ondragstart', `handleDragStart(event, ${idx})`);
         tr.setAttribute('ondragover', 'handleDragOver(event)');
@@ -102,19 +105,32 @@ function renderRawTable() {
             </td>
         `;
 
-        // Checkbox for special item grouping
+        // Category Selector Dropdown
+        let catOptions = '';
+        categories.forEach(cat => {
+            const selected = item.categoryId === cat.id ? 'selected' : '';
+            catOptions += `<option value="${cat.id}" ${selected}>${cat.name}</option>`;
+        });
+
         tdHTML += `
-            <td class="p-1.5 border border-slate-200 text-center">
-                <input type="checkbox" ${item.isSpecial ? 'checked' : ''} 
-                    onchange="toggleItemSpecial('${item.id}', this.checked)"
-                    title="تحديد لجمع هذا الصنف في جدول منفصل (هوالك/مستبعدات)"
-                    class="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer">
+            <td class="p-1 border border-slate-200 text-center">
+                <select onchange="updateItemCategory('${item.id}', this.value)" class="w-full text-[11px] p-1 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-indigo-500 font-semibold ${isSpecial ? 'text-amber-800 font-bold' : 'text-slate-700'}">
+                    ${catOptions}
+                </select>
             </td>
         `;
 
-        // Fixed Original Serial Number / Code
-        const serialNoDisplay = formatEnglishNumber(item.serialNo || (item.originalOrder || idx + 1), false);
-        tdHTML += `<td class="p-1.5 border border-slate-200 text-center font-extrabold ${item.isSpecial ? 'text-amber-800 bg-amber-100/50' : 'text-indigo-700 bg-slate-100/50'} text-[11px]" title="الرقم التسلسلي الأصلي">${serialNoDisplay}</td>`;
+        // Editable Item Code Input Field
+        const currentCode = item.itemCode || item.serialNo || (idx + 1);
+        tdHTML += `
+            <td class="p-1 border border-slate-200 text-center">
+                <input type="text" value="${currentCode}" 
+                    onchange="updateItemCode('${item.id}', this.value)"
+                    placeholder="كود"
+                    title="تعديل كود الصنف يدويًا"
+                    class="w-16 p-1 text-center font-extrabold ${isSpecial ? 'text-amber-800 bg-amber-100/50' : 'text-indigo-700 bg-slate-100/50'} text-[11px] border border-transparent focus:border-indigo-400 rounded outline-none transition">
+            </td>
+        `;
         
         list.headers.forEach(h => {
             const val = item[h.id] !== undefined ? toEnglishDigits(item[h.id]) : '';
@@ -139,7 +155,7 @@ function renderRawTable() {
 }
 
 // Helper: Build HTML Table Rows for an aggregated list array
-function buildAggregatedTableSection(aggregatedList, headers, filterText) {
+function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpecialTable = false) {
     const sumHeaders = headers.filter(h => h.role === 'sum');
     const filtered = aggregatedList.filter(row => {
         if (!filterText) return true;
@@ -148,7 +164,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText) {
     });
 
     if (filtered.length === 0) {
-        return { html: `<tr><td colspan="${headers.length + 2}" class="p-4 text-center text-slate-400">لا توجد نتائج.</td></tr>`, totals: {} };
+        return { html: `<tr><td colspan="${headers.length + 2}" class="p-4 text-center text-slate-400">لا توجد أصناف في هذا الجدول.</td></tr>`, totals: {} };
     }
 
     const totals = {};
@@ -156,7 +172,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText) {
     let rowsHTML = '';
 
     filtered.forEach((row, idx) => {
-        rowsHTML += `<tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}">`;
+        rowsHTML += `<tr class="${idx % 2 === 0 ? 'bg-white' : (isSpecialTable ? 'bg-amber-50/50' : 'bg-slate-50')}">`;
         rowsHTML += `<td class="p-1.5 border border-slate-200 text-center font-bold text-slate-500">${formatEnglishNumber(idx + 1, false)}</td>`;
         
         headers.forEach(h => {
@@ -168,7 +184,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText) {
                 const val = row.sumValues[h.id] || 0;
                 totals[h.id] += val;
                 const formatted = formatCellValueWithUnit(val, h.name, true);
-                rowsHTML += `<td class="p-1.5 border border-slate-200 font-bold text-indigo-700">${formatted}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 font-bold ${isSpecialTable ? 'text-amber-800' : 'text-indigo-700'}">${formatted}</td>`;
             } else {
                 const valArr = (row.infoValues[h.id] || []).filter(Boolean);
                 const valStr = valArr.map(v => formatCellValueWithUnit(v, h.name, false)).join(', ');
@@ -182,10 +198,10 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText) {
     return { html: rowsHTML, totals };
 }
 
-// Render Aggregated Final Results Table (Right Panel)
+// Render Aggregated Final Results Table (Right Panel) with Multi-Table Support
 function renderAggregatedTable() {
     const list = getActiveList();
-    const { main, special } = computeAggregatedData();
+    const resultCategories = computeAggregatedData();
     const searchInput = document.getElementById('searchInput');
     const filterText = (searchInput ? searchInput.value : '').trim().toLowerCase();
 
@@ -197,7 +213,6 @@ function renderAggregatedTable() {
     const exportArea = document.getElementById('exportableArea');
     if (!exportArea) return;
 
-    // Render Full Aggregated View (Main Table + Optional Special Table)
     let containerHTML = `
         <div class="text-center mb-3 border-b pb-2">
             <h4 class="font-bold text-slate-800 text-sm flex items-center justify-center gap-1.5">
@@ -208,69 +223,74 @@ function renderAggregatedTable() {
         </div>
     `;
 
-    // 1. Main Aggregated Table
-    containerHTML += `
-        <div class="mb-4">
-            <table class="w-full text-right text-xs border-collapse">
-                <thead>
-                    <tr class="bg-slate-800 text-white font-semibold">
-                        <th class="p-1.5 border border-slate-700 text-center">م</th>
-    `;
-    list.headers.forEach(h => {
-        containerHTML += `<th class="p-1.5 border border-slate-700">${h.name}</th>`;
-    });
-    containerHTML += `<th class="p-1.5 border border-slate-700 text-center">عدد</th></tr></thead><tbody>`;
+    let grandTotalWeight = 0;
+    let grandTotalCount = 0;
+    const sumHeader = list.headers.find(h => h.role === 'sum');
 
-    const mainRes = buildAggregatedTableSection(main, list.headers, filterText);
-    containerHTML += mainRes.html;
+    // Loop through each Category Table that has items
+    resultCategories.forEach((catGroup, index) => {
+        if (catGroup.rawItemCount === 0 && resultCategories.length > 1) return; // Skip empty tables if multiple exist
 
-    containerHTML += `</tbody><tfoot class="bg-slate-100 font-bold border-t-2 border-slate-300"><tr><td class="p-2 border border-slate-300 text-center">المجموع</td>`;
-    list.headers.forEach(h => {
-        if (h.role === 'sum') {
-            const formattedTotal = formatCellValueWithUnit(mainRes.totals[h.id] || 0, h.name, true);
-            containerHTML += `<td class="p-2 border border-slate-300 font-extrabold text-emerald-800">${formattedTotal}</td>`;
-        } else {
-            containerHTML += `<td class="p-2 border border-slate-300 text-slate-400">-</td>`;
-        }
-    });
-    containerHTML += `<td class="p-2 border border-slate-300 text-center">-</td></tr></tfoot></table></div>`;
+        grandTotalWeight += catGroup.totalWeight;
+        grandTotalCount += catGroup.rawItemCount;
 
-    // 2. Special Aggregated Table (If checked items exist)
-    if (special.length > 0) {
-        const specialTitle = list.specialTableTitle || 'الأصناف المحددة / الهوالك';
+        const isSpecial = catGroup.isSpecial;
+        const headerBg = isSpecial ? 'bg-amber-900 text-white' : (index % 2 === 0 ? 'bg-slate-800 text-white' : 'bg-indigo-900 text-white');
+        const borderTheme = isSpecial ? 'border-amber-300' : 'border-slate-200';
+
         containerHTML += `
-            <div class="mt-4 pt-3 border-t-2 border-amber-300">
-                <div class="flex justify-between items-center mb-2">
-                    <h5 class="font-bold text-amber-800 text-xs flex items-center gap-1.5">
-                        <i class="fa-solid fa-square-check text-amber-600"></i> ${specialTitle}
-                        <i class="fa-solid fa-pen text-[9px] text-slate-400 hover:text-amber-700 cursor-pointer" onclick="updateSpecialTableTitle()" title="تعديل عنوان جدول الهوالك/الأصناف المحددة"></i>
+            <div class="mb-5 border ${borderTheme} rounded-xl overflow-hidden shadow-sm">
+                <div class="flex justify-between items-center px-3 py-2 ${isSpecial ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-800'} border-b">
+                    <h5 class="font-bold text-xs flex items-center gap-1.5">
+                        <i class="fa-solid ${isSpecial ? 'fa-square-check text-amber-600' : 'fa-table text-indigo-600'}"></i>
+                        <span>${catGroup.name}</span>
+                        <i class="fa-solid fa-pen text-[9px] text-slate-400 hover:text-indigo-600 cursor-pointer" onclick="renameTableCategory('${catGroup.id}')" title="تعديل اسم هذا الجدول"></i>
                     </h5>
-                    <span class="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">جدول منفصل</span>
+                    <span class="text-[10px] font-bold ${isSpecial ? 'bg-amber-200 text-amber-900' : 'bg-indigo-100 text-indigo-800'} px-2 py-0.5 rounded-full">
+                        إجمالي الجدول: ${sumHeader ? formatCellValueWithUnit(catGroup.totalWeight, sumHeader.name, true) : formatEnglishNumber(catGroup.totalWeight)}
+                    </span>
                 </div>
+
                 <table class="w-full text-right text-xs border-collapse">
                     <thead>
-                        <tr class="bg-amber-900 text-white font-semibold">
-                            <th class="p-1.5 border border-amber-800 text-center">م</th>
+                        <tr class="${headerBg}">
+                            <th class="p-1.5 border border-slate-700 text-center">م</th>
         `;
+
         list.headers.forEach(h => {
-            containerHTML += `<th class="p-1.5 border border-amber-800">${h.name}</th>`;
+            containerHTML += `<th class="p-1.5 border border-slate-700">${h.name}</th>`;
         });
-        containerHTML += `<th class="p-1.5 border border-amber-800 text-center">عدد</th></tr></thead><tbody>`;
+        containerHTML += `<th class="p-1.5 border border-slate-700 text-center">عدد</th></tr></thead><tbody>`;
 
-        const specialRes = buildAggregatedTableSection(special, list.headers, filterText);
-        containerHTML += specialRes.html;
+        const sectionRes = buildAggregatedTableSection(catGroup.aggregated, list.headers, filterText, isSpecial);
+        containerHTML += sectionRes.html;
 
-        containerHTML += `</tbody><tfoot class="bg-amber-50 font-bold border-t-2 border-amber-300"><tr><td class="p-2 border border-amber-300 text-center">مجموع المحددة</td>`;
+        containerHTML += `</tbody><tfoot class="${isSpecial ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-800'} font-bold border-t-2"><tr><td class="p-2 border text-center">مجموع الجدول</td>`;
+        
         list.headers.forEach(h => {
             if (h.role === 'sum') {
-                const formattedTotal = formatCellValueWithUnit(specialRes.totals[h.id] || 0, h.name, true);
-                containerHTML += `<td class="p-2 border border-amber-300 font-extrabold text-amber-900">${formattedTotal}</td>`;
+                const formattedTotal = formatCellValueWithUnit(sectionRes.totals[h.id] || 0, h.name, true);
+                containerHTML += `<td class="p-2 border font-extrabold ${isSpecial ? 'text-amber-900' : 'text-emerald-800'}">${formattedTotal}</td>`;
             } else {
-                containerHTML += `<td class="p-2 border border-amber-300 text-slate-400">-</td>`;
+                containerHTML += `<td class="p-2 border text-slate-400">-</td>`;
             }
         });
-        containerHTML += `<td class="p-2 border border-amber-300 text-center">-</td></tr></tfoot></table></div>`;
-    }
+        containerHTML += `<td class="p-2 border text-center">-</td></tr></tfoot></table></div>`;
+    });
+
+    // Grand Total Summary Card at Bottom
+    containerHTML += `
+        <div class="mt-4 p-3 bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-xl shadow-md border border-indigo-700 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-calculator text-amber-400 text-base"></i>
+                <span class="font-extrabold text-xs">إجمالي الشحنة الكلي (جميع الجداول):</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-xs bg-white/10 px-2.5 py-1 rounded-lg">عدد الرولات/البكرات: <strong class="text-amber-300 font-bold">${formatEnglishNumber(grandTotalCount)}</strong></span>
+                <span class="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-lg border border-emerald-500/30">الوزن الإجمالي الكلي: <strong class="text-emerald-300 font-extrabold">${sumHeader ? formatCellValueWithUnit(grandTotalWeight, sumHeader.name, true) : formatEnglishNumber(grandTotalWeight)}</strong></span>
+            </div>
+        </div>
+    `;
 
     exportArea.innerHTML = containerHTML;
 }
@@ -278,22 +298,26 @@ function renderAggregatedTable() {
 // Update Top Dashboard Stats Card
 function updateStats() {
     const list = getActiveList();
-    const { main, special } = computeAggregatedData();
-    const totalAggregatedCount = main.length + special.length;
+    const resultCategories = computeAggregatedData();
     
+    let grandTotalWeight = 0;
+    let grandMergedCount = 0;
+
+    resultCategories.forEach(catGroup => {
+        grandTotalWeight += catGroup.totalWeight;
+        grandMergedCount += catGroup.aggregated.length;
+    });
+
     const statRawCount = document.getElementById('statRawCount');
     const statMergedCount = document.getElementById('statMergedCount');
     const statTotalWeight = document.getElementById('statTotalWeight');
 
     if (statRawCount) statRawCount.innerText = formatEnglishNumber(list.items.length);
-    if (statMergedCount) statMergedCount.innerText = formatEnglishNumber(totalAggregatedCount);
+    if (statMergedCount) statMergedCount.innerText = formatEnglishNumber(grandMergedCount);
 
     const sumHeader = list.headers.find(h => h.role === 'sum');
     if (sumHeader && statTotalWeight) {
-        const mainTotal = main.reduce((acc, curr) => acc + (curr.sumValues[sumHeader.id] || 0), 0);
-        const specialTotal = special.reduce((acc, curr) => acc + (curr.sumValues[sumHeader.id] || 0), 0);
-        const total = mainTotal + specialTotal;
-        const formattedTotalWithUnit = formatCellValueWithUnit(total, sumHeader.name, true);
+        const formattedTotalWithUnit = formatCellValueWithUnit(grandTotalWeight, sumHeader.name, true);
         statTotalWeight.innerText = `${formattedTotalWithUnit} (${sumHeader.name})`;
     } else if (statTotalWeight) {
         statTotalWeight.innerText = '0';

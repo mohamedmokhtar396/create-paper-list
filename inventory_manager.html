@@ -26,14 +26,14 @@
                 </div>
                 <div>
                     <h1 class="font-bold text-xl leading-tight">نظام إدارة وتجميع الأصناف الواردة</h1>
-                    <p class="text-xs text-indigo-200">إدارة اللوائح، الدمج التلقائي، التصدير، والمعاينة المباشرة</p>
+                    <p class="text-xs text-indigo-200">إدارة اللوائح، الدمج التلقائي، الجداول المتعددة، المعاينة والتصدير</p>
                 </div>
             </div>
 
             <!-- Global Actions & Settings -->
             <div class="flex items-center gap-2 flex-wrap">
-                <button onclick="resetDefaultDataPrompt()" class="bg-indigo-800 hover:bg-indigo-700 text-xs text-white px-3 py-2 rounded-lg transition flex items-center gap-1.5 border border-indigo-700" title="استعادة قائمة الأصناف الأصلية كاملة (27 صنفاً من برستول كوشيه السويس)">
-                    <i class="fa-solid fa-rotate text-amber-400"></i> استرجاع قائمة 27 صنفاً
+                <button onclick="resetDefaultDataPrompt()" class="bg-indigo-800 hover:bg-indigo-700 text-xs text-white px-3 py-2 rounded-lg transition flex items-center gap-1.5 border border-indigo-700" title="استعادة قائمة الأصناف الأصلية كاملة (32 بكرة مقسمة)">
+                    <i class="fa-solid fa-rotate text-amber-400"></i> استرجاع شحنة 32 بكرة
                 </button>
                 <button onclick="exportFullJSON()" class="bg-indigo-800 hover:bg-indigo-700 text-xs text-white px-3 py-2 rounded-lg transition flex items-center gap-1.5 border border-indigo-700">
                     <i class="fa-solid fa-download text-emerald-400"></i> تصدير نسخة (JSON)
@@ -92,23 +92,28 @@
                     </div>
                 </div>
                 <div class="bg-white/10 rounded-lg p-2 text-center backdrop-blur-sm">
-                    <span class="text-xs text-indigo-200">إجمالي الوزن: </span>
+                    <span class="text-xs text-indigo-200">إجمالي الوزن الكلي: </span>
                     <span id="statTotalWeight" class="text-base font-extrabold text-emerald-300">0</span>
                 </div>
             </div>
         </div>
 
-        <!-- Dynamic Headers / Columns Controls Panel -->
+        <!-- Dynamic Headers & Custom Tables Control Panel -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-sliders text-indigo-600"></i>
-                    <h3 class="font-bold text-slate-700 text-sm">أعمدة البيانات وتصنيف الدمج</h3>
-                    <span class="text-xs text-slate-500">(يمكنك إضافة/حذف الأعمدة وتعديل مسمياتها)</span>
+                    <h3 class="font-bold text-slate-700 text-sm">أعمدة البيانات وتصنيف الجداول</h3>
+                    <span class="text-xs text-slate-500">(يمكنك إضافة جداول مخصصة أو إضافة/حذف الأعمدة)</span>
                 </div>
-                <button onclick="addNewHeaderPrompt()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 transition flex items-center gap-1">
-                    <i class="fa-solid fa-plus text-indigo-600"></i> إضافة عمود جديد
-                </button>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="addNewTableCategoryPrompt()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs px-2.5 py-1.5 rounded-lg border border-indigo-200 transition flex items-center gap-1 font-semibold">
+                        <i class="fa-solid fa-folder-plus text-indigo-600"></i> إضافة جدول مخصص جديد
+                    </button>
+                    <button onclick="addNewHeaderPrompt()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 transition flex items-center gap-1">
+                        <i class="fa-solid fa-plus text-indigo-600"></i> إضافة عمود جديد
+                    </button>
+                </div>
             </div>
             
             <div id="headersContainer" class="flex flex-wrap gap-2 items-center">
@@ -158,7 +163,7 @@
                 </div>
 
                 <div class="flex justify-between items-center text-xs text-slate-500 pt-2 border-t flex-wrap gap-2">
-                    <span>* الأكواد التسلسلية ثابتة ومحمية من التلخبط أثناء الترتيب، ويمكنك استرجاع الترتيب الأصلي في أي وقت.</span>
+                    <span>* يمكنك تحديد الجدول لكل صنف، وتعديل الكود يدويًا في حقل "الكود #".</span>
                     <button onclick="clearCurrentListItems()" class="text-rose-600 hover:text-rose-800 transition flex items-center gap-1">
                         <i class="fa-solid fa-trash-can"></i> مسح مدخلات هذه القائمة
                     </button>
