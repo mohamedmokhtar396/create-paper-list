@@ -76,7 +76,31 @@ function getExportFileName(fallbackName = 'تقرير_الأصناف', extension
     return name;
 }
 
-// Helper: Build a Clean, Full-Width HTML Element for Printing & Exporting Multi-Tables with Text Wrap
+// Helper: Format Cell Value specifically for PDF export with separated HTML spans to prevent text overlapping
+function formatPdfCellValueWithUnit(value, headerName, isSum = false) {
+    if (value === null || value === undefined || value === '') return '-';
+    
+    const suffix = getUnitSuffix(headerName);
+    let strVal = toEnglishDigits(value.toString());
+
+    if (isSum) {
+        const numVal = parseFloat(strVal) || 0;
+        const formattedNum = formatEnglishNumber(numVal);
+        return suffix 
+            ? `<span style="direction: ltr; unicode-bidi: embed; font-weight: 800;">${formattedNum}</span>&nbsp;<span style="font-size: 10px; font-weight: normal; color: #4338ca; margin-right: 3px; display: inline-block;">${suffix}</span>`
+            : `<span style="direction: ltr; unicode-bidi: embed; font-weight: 800;">${formattedNum}</span>`;
+    }
+
+    if (suffix) {
+        if (strVal.endsWith(suffix)) {
+            strVal = strVal.replace(suffix, '').trim();
+        }
+        return `<span style="direction: ltr; unicode-bidi: embed; font-weight: 600;">${strVal}</span>&nbsp;<span style="font-size: 10px; color: #475569; margin-right: 3px; display: inline-block;">${suffix}</span>`;
+    }
+    return strVal;
+}
+
+// Helper: Build a Clean, Perfect-Fit A4 HTML Element for Printing & Exporting PDF without cutoffs or overlapping text
 function buildCleanExportHTML() {
     const list = getActiveList();
     const resultCategories = computeAggregatedData();
@@ -87,19 +111,20 @@ function buildCleanExportHTML() {
     wrapper.id = 'pdfExportContainer';
     wrapper.style.backgroundColor = '#ffffff';
     wrapper.style.color = '#1e293b';
-    wrapper.style.padding = '24px';
+    wrapper.style.padding = '15px';
     wrapper.style.fontFamily = "'Cairo', sans-serif";
     wrapper.style.direction = 'rtl';
-    wrapper.style.width = '800px';
+    wrapper.style.width = '700px'; // Exactly fits A4 portrait width at 96DPI with margins
     wrapper.style.margin = '0 auto';
     wrapper.style.boxSizing = 'border-box';
+    wrapper.style.overflow = 'hidden';
 
     // Title & Metadata Header
     let html = `
-        <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px;">
-            <h2 style="margin: 0 0 6px 0; color: #0f172a; font-size: 20px; font-weight: 800;">${list.title}</h2>
-            <p style="margin: 0 0 4px 0; color: #475569; font-size: 12px; font-weight: 600;">${list.subTitle || 'تقرير الأصناف واللوائح المدمجة'}</p>
-            <p style="margin: 0; color: #64748b; font-size: 11px;">تاريخ التقرير: ${new Date().toLocaleDateString('en-GB')}</p>
+        <div style="text-align: center; margin-bottom: 16px; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px;">
+            <h2 style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px; font-weight: 800;">${list.title}</h2>
+            <p style="margin: 0 0 4px 0; color: #475569; font-size: 11px; font-weight: 600;">${list.subTitle || 'تقرير الأصناف واللوائح المدمجة'}</p>
+            <p style="margin: 0; color: #64748b; font-size: 10px;">تاريخ التقرير: ${new Date().toLocaleDateString('en-GB')}</p>
         </div>
     `;
 
@@ -118,76 +143,82 @@ function buildCleanExportHTML() {
         const titleColor = isSpecial ? '#92400e' : '#0f172a';
 
         html += `
-            <div style="margin-bottom: 24px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h3 style="margin: 0; color: ${titleColor}; font-size: 14px; font-weight: 800;">${catGroup.name}</h3>
-                    <span style="font-size: 11px; font-weight: bold; color: ${isSpecial ? '#78350f' : '#4338ca'}; background-color: ${isSpecial ? '#fef3c7' : '#e0e7ff'}; padding: 3px 10px; border-radius: 6px;">
+            <div style="margin-bottom: 20px; width: 100%; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <h3 style="margin: 0; color: ${titleColor}; font-size: 13px; font-weight: 800;">${catGroup.name}</h3>
+                    <span style="font-size: 10px; font-weight: bold; color: ${isSpecial ? '#78350f' : '#4338ca'}; background-color: ${isSpecial ? '#fef3c7' : '#e0e7ff'}; padding: 2px 8px; border-radius: 4px;">
                         إجمالي الجدول: ${sumHeader ? formatCellValueWithUnit(catGroup.totalWeight, sumHeader.name, true) : formatEnglishNumber(catGroup.totalWeight)}
                     </span>
                 </div>
 
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: auto;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed; box-sizing: border-box;">
                     <thead>
                         <tr style="background-color: ${tableHeaderBg}; color: #ffffff;">
-                            <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 35px; font-size: 11px; white-space: nowrap;">م</th>
+                            <th style="border: 1px solid #cbd5e1; padding: 6px 4px; text-align: center; width: 32px; font-size: 10px; white-space: nowrap;">م</th>
         `;
 
+        // Calculate column widths proportional to number of headers
+        const headerCount = list.headers.length;
         list.headers.forEach(h => {
-            html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-size: 11px; white-space: normal; word-break: break-word;">${h.name}</th>`;
+            let colWidth = `${Math.floor(88 / headerCount)}%`;
+            if (h.name.includes('النوع') || h.role === 'group') colWidth = '32%';
+            else if (h.role === 'sum') colWidth = '16%';
+            
+            html += `<th style="border: 1px solid #cbd5e1; padding: 6px 6px; text-align: right; font-size: 10px; white-space: nowrap; width: ${colWidth};">${h.name}</th>`;
         });
 
-        html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 45px; font-size: 11px; white-space: nowrap;">عدد</th></tr></thead><tbody>`;
+        html += `<th style="border: 1px solid #cbd5e1; padding: 6px 4px; text-align: center; width: 40px; font-size: 10px; white-space: nowrap;">عدد</th></tr></thead><tbody>`;
 
         const totals = {};
         sumHeaders.forEach(h => totals[h.id] = 0);
 
         if (catGroup.aggregated.length === 0) {
-            html += `<tr><td colspan="${list.headers.length + 2}" style="border: 1px solid #cbd5e1; text-align: center; color: #94a3b8; padding: 15px; font-size: 11px;">لا توجد بيانات.</td></tr>`;
+            html += `<tr><td colspan="${list.headers.length + 2}" style="border: 1px solid #cbd5e1; text-align: center; color: #94a3b8; padding: 12px; font-size: 10px;">لا توجد بيانات.</td></tr>`;
         } else {
             catGroup.aggregated.forEach((row, idx) => {
                 html += `<tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : (isSpecial ? '#fffbeb' : '#f8fafc')};">`;
-                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #475569; font-size: 11px; white-space: nowrap;">${formatEnglishNumber(idx + 1, false)}</td>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 5px 4px; text-align: center; font-weight: bold; color: #475569; font-size: 10px; white-space: nowrap;">${formatEnglishNumber(idx + 1, false)}</td>`;
                 
                 list.headers.forEach(h => {
                     if (h.role === 'group') {
                         const val = row.groupValues[h.id] || '';
-                        const formatted = formatCellValueWithUnit(val, h.name, false);
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 600; font-size: 11px; white-space: normal; word-break: break-word; line-height: 1.5;">${formatted}</td>`;
+                        const formatted = formatPdfCellValueWithUnit(val, h.name, false);
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; font-weight: 600; font-size: 10px; white-space: normal; word-break: break-word; line-height: 1.4;">${formatted}</td>`;
                     } else if (h.role === 'sum') {
                         const val = row.sumValues[h.id] || 0;
                         totals[h.id] += val;
-                        const formatted = formatCellValueWithUnit(val, h.name, true);
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 700; color: ${isSpecial ? '#92400e' : '#4338ca'}; font-size: 11px; white-space: nowrap;">${formatted}</td>`;
+                        const formatted = formatPdfCellValueWithUnit(val, h.name, true);
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; font-weight: 700; color: ${isSpecial ? '#92400e' : '#4338ca'}; font-size: 10px; white-space: nowrap;">${formatted}</td>`;
                     } else {
                         const valArr = (row.infoValues[h.id] || []).filter(Boolean);
-                        const valStr = valArr.map(v => formatCellValueWithUnit(v, h.name, false)).join(', ');
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; color: #64748b; font-size: 10px; white-space: normal; word-break: break-word; line-height: 1.4;">${valStr || '-'}</td>`;
+                        const valStr = valArr.map(v => formatPdfCellValueWithUnit(v, h.name, false)).join(', ');
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; color: #64748b; font-size: 9px; white-space: normal; word-break: break-word; line-height: 1.3;">${valStr || '-'}</td>`;
                     }
                 });
 
-                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #b45309; background-color: #fef3c7; font-size: 11px; white-space: nowrap;">${formatEnglishNumber(row.count, false)}</td></tr>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 5px 4px; text-align: center; font-weight: bold; color: #b45309; background-color: #fef3c7; font-size: 10px; white-space: nowrap;">${formatEnglishNumber(row.count, false)}</td></tr>`;
             });
         }
 
-        html += `</tbody><tfoot><tr style="background-color: ${isSpecial ? '#fef3c7' : '#f1f5f9'}; font-weight: bold;"><td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-size: 11px;">المجموع</td>`;
+        html += `</tbody><tfoot><tr style="background-color: ${isSpecial ? '#fef3c7' : '#f1f5f9'}; font-weight: bold;"><td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 10px;">المجموع</td>`;
 
         list.headers.forEach(h => {
             if (h.role === 'sum') {
-                const formattedTotal = formatCellValueWithUnit(totals[h.id], h.name, true);
-                html += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-weight: 800; color: ${isSpecial ? '#78350f' : '#047857'}; font-size: 11px;">${formattedTotal}</td>`;
+                const formattedTotal = formatPdfCellValueWithUnit(totals[h.id], h.name, true);
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px; text-align: right; font-weight: 800; color: ${isSpecial ? '#78350f' : '#047857'}; font-size: 10px;">${formattedTotal}</td>`;
             } else {
-                html += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; color: #94a3b8; font-size: 11px;">-</td>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px; text-align: right; color: #94a3b8; font-size: 10px;">-</td>`;
             }
         });
 
-        html += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-size: 11px;">-</td></tr></tfoot></table></div>`;
+        html += `<td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 10px;">-</td></tr></tfoot></table></div>`;
     });
 
     // Grand Total Footer Banner
     html += `
-        <div style="background-color: #0f172a; color: #ffffff; padding: 12px 16px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
-            <span style="font-size: 12px; font-weight: bold; color: #facc15;">إجمالي الشحنة الكلي (جميع الجداول):</span>
-            <div style="font-size: 12px;">
+        <div style="background-color: #0f172a; color: #ffffff; padding: 10px 14px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-top: 10px; box-sizing: border-box; width: 100%;">
+            <span style="font-size: 11px; font-weight: bold; color: #facc15;">إجمالي الشحنة الكلي (جميع الجداول):</span>
+            <div style="font-size: 11px;">
                 <span style="margin-left: 15px;">عدد البكرات: <strong>${formatEnglishNumber(grandTotalCount)}</strong></span>
                 <span style="color: #6ee7b7;">الوزن الإجمالي الكلي: <strong>${sumHeader ? formatCellValueWithUnit(grandTotalWeight, sumHeader.name, true) : formatEnglishNumber(grandTotalWeight)}</strong></span>
             </div>
@@ -198,7 +229,7 @@ function buildCleanExportHTML() {
     return wrapper;
 }
 
-// PDF Download Execution
+// PDF Download Execution with 100% A4 Fit
 async function executePDFExport() {
     const listTitle = getActiveList().title;
     const fileName = getExportFileName(`${listTitle}_المدمجة`, '.pdf');
@@ -212,10 +243,10 @@ async function executePDFExport() {
         const element = document.getElementById('pdfExportContainer') || document.getElementById('previewModalContent');
 
         const opt = {
-            margin:       [8, 8, 8, 8],
+            margin:       [6, 6, 6, 6],
             filename:     fileName,
-            image:        { type: 'jpeg', quality: 0.95 },
-            html2canvas:  { scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0 },
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 1.8, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 720 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
@@ -243,7 +274,7 @@ async function executeImageExport() {
 
         const element = document.getElementById('pdfExportContainer') || document.getElementById('previewModalContent');
 
-        const canvas = await html2canvas(element, { scale: 1.8, useCORS: true, scrollX: 0, scrollY: 0 });
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 720 });
 
         const link = document.createElement('a');
         link.download = fileName;
@@ -312,14 +343,14 @@ async function executeTelegramPDFExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التجهيز والرفع...';
 
-        // 1. Optimized Fast PDF Blob Generation
+        // 1. Optimized Fast PDF Blob Generation with Perfect A4 Fit
         const element = document.getElementById('pdfExportContainer') || document.getElementById('previewModalContent');
 
         const opt = {
-            margin:       [8, 8, 8, 8],
+            margin:       [6, 6, 6, 6],
             filename:     fileName,
-            image:        { type: 'jpeg', quality: 0.90 },
-            html2canvas:  { scale: 1.2, useCORS: true, logging: false, scrollX: 0, scrollY: 0 },
+            image:        { type: 'jpeg', quality: 0.92 },
+            html2canvas:  { scale: 1.4, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 720 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
