@@ -76,7 +76,7 @@ function getExportFileName(fallbackName = 'تقرير_الأصناف', extension
     return name;
 }
 
-// Helper: Format Cell Value specifically for PDF export with separated HTML spans to prevent text overlapping
+// Helper: Clean Cell Value Formatter for PDF & Canvas (Uses non-breaking spaces for zero text overlap)
 function formatPdfCellValueWithUnit(value, headerName, isSum = false) {
     if (value === null || value === undefined || value === '') return '-';
     
@@ -86,21 +86,19 @@ function formatPdfCellValueWithUnit(value, headerName, isSum = false) {
     if (isSum) {
         const numVal = parseFloat(strVal) || 0;
         const formattedNum = formatEnglishNumber(numVal);
-        return suffix 
-            ? `<span style="font-weight: 800; font-family: Tahoma, Arial, sans-serif;">${formattedNum}</span>&nbsp;<span style="font-size: 10px; font-weight: normal; color: #4338ca; margin-right: 4px; display: inline-block;">${suffix}</span>`
-            : `<span style="font-weight: 800; font-family: Tahoma, Arial, sans-serif;">${formattedNum}</span>`;
+        return suffix ? `${formattedNum}\u00A0${suffix}` : formattedNum;
     }
 
     if (suffix) {
         if (strVal.endsWith(suffix)) {
             strVal = strVal.replace(suffix, '').trim();
         }
-        return `<span style="font-weight: 600; font-family: Tahoma, Arial, sans-serif;">${strVal}</span>&nbsp;<span style="font-size: 10px; color: #475569; margin-right: 4px; display: inline-block;">${suffix}</span>`;
+        return `${strVal}\u00A0${suffix}`;
     }
     return strVal;
 }
 
-// Helper: Build a Clean, Perfect-Fit A4 HTML Element for Printing & Exporting PDF without cutoffs or overlapping text
+// Helper: Build Clean Dynamic-Width A4 HTML Element for Printing & PDF Exports
 function buildCleanExportHTML() {
     const list = getActiveList();
     const resultCategories = computeAggregatedData();
@@ -111,19 +109,17 @@ function buildCleanExportHTML() {
     wrapper.id = 'pdfExportContainer';
     wrapper.style.backgroundColor = '#ffffff';
     wrapper.style.color = '#1e293b';
-    wrapper.style.padding = '15px';
-    wrapper.style.fontFamily = "Tahoma, Arial, 'Cairo', sans-serif"; // Tahoma/Arial prevents html2canvas Arabic text overlapping
+    wrapper.style.padding = '16px';
+    wrapper.style.fontFamily = "Cairo, Tahoma, Arial, sans-serif";
     wrapper.style.direction = 'rtl';
-    wrapper.style.width = '680px'; // Fits A4 portrait width perfectly inside printable margins
+    wrapper.style.width = '750px'; // Fits A4 portrait perfectly
     wrapper.style.margin = '0 auto';
     wrapper.style.boxSizing = 'border-box';
-    wrapper.style.overflow = 'hidden';
-    wrapper.style.letterSpacing = 'normal';
 
     // Title & Metadata Header
     let html = `
         <div style="text-align: center; margin-bottom: 16px; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px;">
-            <h2 style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px; font-weight: 800; font-family: Tahoma, Arial, sans-serif;">${list.title}</h2>
+            <h2 style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px; font-weight: 800;">${list.title}</h2>
             <p style="margin: 0 0 4px 0; color: #475569; font-size: 11px; font-weight: 600;">${list.subTitle || 'تقرير الأصناف واللوائح المدمجة'}</p>
             <p style="margin: 0; color: #64748b; font-size: 10px;">تاريخ التقرير: ${new Date().toLocaleDateString('en-GB')}</p>
         </div>
@@ -146,29 +142,26 @@ function buildCleanExportHTML() {
         html += `
             <div style="margin-bottom: 20px; width: 100%; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <h3 style="margin: 0; color: ${titleColor}; font-size: 13px; font-weight: 800; font-family: Tahoma, Arial, sans-serif;">${catGroup.name}</h3>
+                    <h3 style="margin: 0; color: ${titleColor}; font-size: 13px; font-weight: 800;">${catGroup.name}</h3>
                     <span style="font-size: 10px; font-weight: bold; color: ${isSpecial ? '#78350f' : '#4338ca'}; background-color: ${isSpecial ? '#fef3c7' : '#e0e7ff'}; padding: 2px 8px; border-radius: 4px;">
                         إجمالي الجدول: ${sumHeader ? formatCellValueWithUnit(catGroup.totalWeight, sumHeader.name, true) : formatEnglishNumber(catGroup.totalWeight)}
                     </span>
                 </div>
 
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed; box-sizing: border-box;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: auto; box-sizing: border-box;">
                     <thead>
                         <tr style="background-color: ${tableHeaderBg}; color: #ffffff;">
-                            <th style="border: 1px solid #cbd5e1; padding: 6px 4px; text-align: center; width: 32px; font-size: 10px; white-space: nowrap;">م</th>
+                            <th style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-size: 11px; white-space: nowrap; width: 35px;">م</th>
         `;
 
-        // Calculate column widths proportional to number of headers
-        const headerCount = list.headers.length;
+        // Dynamic auto-sizing headers
         list.headers.forEach(h => {
-            let colWidth = `${Math.floor(88 / headerCount)}%`;
-            if (h.name.includes('النوع') || h.role === 'group') colWidth = '34%';
-            else if (h.role === 'sum') colWidth = '16%';
-            
-            html += `<th style="border: 1px solid #cbd5e1; padding: 6px 6px; text-align: right; font-size: 10px; white-space: nowrap; width: ${colWidth}; font-family: Tahoma, Arial, sans-serif;">${h.name}</th>`;
+            const isNum = h.role === 'sum' || h.name.includes('الجرام') || h.name.includes('المقاس') || h.name.includes('الوزن');
+            const align = isNum ? 'center' : 'right';
+            html += `<th style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: ${align}; font-size: 11px; white-space: nowrap;">${h.name}</th>`;
         });
 
-        html += `<th style="border: 1px solid #cbd5e1; padding: 6px 4px; text-align: center; width: 40px; font-size: 10px; white-space: nowrap;">عدد</th></tr></thead><tbody>`;
+        html += `<th style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-size: 11px; white-space: nowrap; width: 45px;">عدد</th></tr></thead><tbody>`;
 
         const totals = {};
         sumHeaders.forEach(h => totals[h.id] = 0);
@@ -178,41 +171,47 @@ function buildCleanExportHTML() {
         } else {
             catGroup.aggregated.forEach((row, idx) => {
                 html += `<tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : (isSpecial ? '#fffbeb' : '#f8fafc')};">`;
-                html += `<td style="border: 1px solid #cbd5e1; padding: 5px 4px; text-align: center; font-weight: bold; color: #475569; font-size: 10px; white-space: nowrap;">${formatEnglishNumber(idx + 1, false)}</td>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #475569; font-size: 11px; white-space: nowrap;">${formatEnglishNumber(idx + 1, false)}</td>`;
                 
                 list.headers.forEach(h => {
+                    const isNum = h.role === 'sum' || h.name.includes('الجرام') || h.name.includes('المقاس') || h.name.includes('الوزن');
+                    const align = isNum ? 'center' : 'right';
+
                     if (h.role === 'group') {
                         const val = row.groupValues[h.id] || '';
                         const formatted = formatPdfCellValueWithUnit(val, h.name, false);
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; font-weight: 600; font-size: 10px; white-space: normal; word-break: break-word; line-height: 1.4; font-family: Tahoma, Arial, sans-serif;">${formatted}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: ${align}; font-weight: 600; font-size: 11px; white-space: normal; word-break: break-word; line-height: 1.4;">${formatted}</td>`;
                     } else if (h.role === 'sum') {
                         const val = row.sumValues[h.id] || 0;
                         totals[h.id] += val;
                         const formatted = formatPdfCellValueWithUnit(val, h.name, true);
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; font-weight: 700; color: ${isSpecial ? '#92400e' : '#4338ca'}; font-size: 10px; white-space: nowrap;">${formatted}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: 700; color: ${isSpecial ? '#92400e' : '#4338ca'}; font-size: 11px; white-space: nowrap;">${formatted}</td>`;
                     } else {
                         const valArr = (row.infoValues[h.id] || []).filter(Boolean);
                         const valStr = valArr.map(v => formatPdfCellValueWithUnit(v, h.name, false)).join(', ');
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; color: #64748b; font-size: 9px; white-space: normal; word-break: break-word; line-height: 1.3; font-family: Tahoma, Arial, sans-serif;">${valStr || '-'}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: ${align}; color: #64748b; font-size: 10px; white-space: normal; word-break: break-word;">${valStr || '-'}</td>`;
                     }
                 });
 
-                html += `<td style="border: 1px solid #cbd5e1; padding: 5px 4px; text-align: center; font-weight: bold; color: #b45309; background-color: #fef3c7; font-size: 10px; white-space: nowrap;">${formatEnglishNumber(row.count, false)}</td></tr>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #b45309; background-color: #fef3c7; font-size: 11px; white-space: nowrap;">${formatEnglishNumber(row.count, false)}</td></tr>`;
             });
         }
 
-        html += `</tbody><tfoot><tr style="background-color: ${isSpecial ? '#fef3c7' : '#f1f5f9'}; font-weight: bold;"><td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 10px;">المجموع</td>`;
+        html += `</tbody><tfoot><tr style="background-color: ${isSpecial ? '#fef3c7' : '#f1f5f9'}; font-weight: bold;"><td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-size: 11px;">المجموع</td>`;
 
         list.headers.forEach(h => {
+            const isNum = h.role === 'sum' || h.name.includes('الجرام') || h.name.includes('المقاس') || h.name.includes('الوزن');
+            const align = isNum ? 'center' : 'right';
+
             if (h.role === 'sum') {
                 const formattedTotal = formatPdfCellValueWithUnit(totals[h.id], h.name, true);
-                html += `<td style="border: 1px solid #cbd5e1; padding: 6px; text-align: right; font-weight: 800; color: ${isSpecial ? '#78350f' : '#047857'}; font-size: 10px;">${formattedTotal}</td>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: 800; color: ${isSpecial ? '#78350f' : '#047857'}; font-size: 11px;">${formattedTotal}</td>`;
             } else {
-                html += `<td style="border: 1px solid #cbd5e1; padding: 6px; text-align: right; color: #94a3b8; font-size: 10px;">-</td>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: ${align}; color: #94a3b8; font-size: 11px;">-</td>`;
             }
         });
 
-        html += `<td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 10px;">-</td></tr></tfoot></table></div>`;
+        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-size: 11px;">-</td></tr></tfoot></table></div>`;
     });
 
     // Grand Total Footer Banner
@@ -251,8 +250,8 @@ function executeNativePrintPDF() {
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
                 body { font-family: 'Cairo', Tahoma, Arial, sans-serif; direction: rtl; margin: 0; padding: 15px; background: #ffffff; color: #1e293b; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
-                th, td { border: 1px solid #cbd5e1; padding: 5px 7px; text-align: right; font-size: 11px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: auto; }
+                th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-size: 11px; }
                 th { background-color: #1e293b !important; color: #ffffff !important; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 tfoot td { background-color: #f1f5f9 !important; font-weight: 800; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 @media print {
@@ -278,7 +277,7 @@ function executeNativePrintPDF() {
     closePreviewModal();
 }
 
-// PDF Download Execution
+// Direct PDF File Download Execution (Uses high quality rendering with auto table layout)
 async function executePDFExport() {
     const listTitle = getActiveList().title;
     const fileName = getExportFileName(`${listTitle}_المدمجة`, '.pdf');
@@ -289,21 +288,27 @@ async function executePDFExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد والتحميل...';
 
-        const element = document.getElementById('pdfExportContainer') || document.getElementById('previewModalContent');
+        const element = buildCleanExportHTML();
+        
+        // Append temporarily to DOM body for html2canvas measurement
+        element.style.position = 'absolute';
+        element.style.left = '-9999px';
+        element.style.top = '-9999px';
+        document.body.appendChild(element);
 
         const opt = {
             margin:       [6, 6, 6, 6],
             filename:     fileName,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 700 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 750 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
         await html2pdf().set(opt).from(element).save();
+        document.body.removeChild(element);
         closePreviewModal();
     } catch (err) {
         console.error('PDF export error:', err);
-        // Fallback to Native Print PDF engine if canvas fails
         executeNativePrintPDF();
     } finally {
         actionBtn.disabled = false;
@@ -322,9 +327,14 @@ async function executeImageExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد...';
 
-        const element = document.getElementById('pdfExportContainer') || document.getElementById('previewModalContent');
+        const element = buildCleanExportHTML();
+        element.style.position = 'absolute';
+        element.style.left = '-9999px';
+        element.style.top = '-9999px';
+        document.body.appendChild(element);
 
-        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 700 });
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 750 });
+        document.body.removeChild(element);
 
         const link = document.createElement('a');
         link.download = fileName;
@@ -393,19 +403,24 @@ async function executeTelegramPDFExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التجهيز والرفع...';
 
-        // 1. Optimized Fast PDF Blob Generation with Perfect A4 Fit
-        const element = document.getElementById('pdfExportContainer') || document.getElementById('previewModalContent');
+        // 1. Optimized Fast PDF Blob Generation with Dynamic Auto Table Layout
+        const element = buildCleanExportHTML();
+        element.style.position = 'absolute';
+        element.style.left = '-9999px';
+        element.style.top = '-9999px';
+        document.body.appendChild(element);
 
         const opt = {
             margin:       [6, 6, 6, 6],
             filename:     fileName,
             image:        { type: 'jpeg', quality: 0.92 },
-            html2canvas:  { scale: 1.4, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 700 },
+            html2canvas:  { scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 750 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
         const pdfWorker = html2pdf().set(opt).from(element);
         const pdfBlob = await pdfWorker.output('blob');
+        document.body.removeChild(element);
 
         // 2. Prepare Telegram FormData payload
         const sumHeader = list.headers.find(h => h.role === 'sum');
