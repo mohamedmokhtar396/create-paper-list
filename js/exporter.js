@@ -110,7 +110,7 @@ function buildCleanExportHTML() {
     wrapper.style.backgroundColor = '#ffffff';
     wrapper.style.color = '#1e293b';
     wrapper.style.padding = '16px';
-    wrapper.style.fontFamily = "Cairo, Tahoma, Arial, sans-serif";
+    wrapper.style.fontFamily = "Tahoma, Arial, sans-serif";
     wrapper.style.direction = 'rtl';
     wrapper.style.width = '750px'; // Fits A4 portrait perfectly
     wrapper.style.margin = '0 auto';
@@ -288,17 +288,25 @@ async function executePDFExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد والتحميل...';
 
-        const element = document.getElementById('previewModalContent').firstElementChild;
+        const element = buildCleanExportHTML();
+        // Append behind everything at top-left to avoid viewport cropping and -9999px issues
+        element.style.position = 'absolute';
+        element.style.top = '0';
+        element.style.left = '0';
+        element.style.zIndex = '-9999';
+        element.style.width = '750px';
+        document.body.appendChild(element);
 
         const opt = {
             margin:       [6, 6, 6, 6],
             filename:     fileName,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 750 },
+            image:        { type: 'jpeg', quality: 1.0 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 800 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
         await html2pdf().set(opt).from(element).save();
+        document.body.removeChild(element);
         closePreviewModal();
     } catch (err) {
         console.error('PDF export error:', err);
@@ -320,9 +328,16 @@ async function executeImageExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد...';
 
-        const element = document.getElementById('previewModalContent').firstElementChild;
+        const element = buildCleanExportHTML();
+        element.style.position = 'absolute';
+        element.style.top = '0';
+        element.style.left = '0';
+        element.style.zIndex = '-9999';
+        element.style.width = '750px';
+        document.body.appendChild(element);
 
-        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 750 });
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 800 });
+        document.body.removeChild(element);
 
         const link = document.createElement('a');
         link.download = fileName;
@@ -392,18 +407,25 @@ async function executeTelegramPDFExport() {
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التجهيز والرفع...';
 
         // 1. Optimized Fast PDF Blob Generation with Dynamic Auto Table Layout
-        const element = document.getElementById('previewModalContent').firstElementChild;
+        const element = buildCleanExportHTML();
+        element.style.position = 'absolute';
+        element.style.top = '0';
+        element.style.left = '0';
+        element.style.zIndex = '-9999';
+        element.style.width = '750px';
+        document.body.appendChild(element);
 
         const opt = {
             margin:       [6, 6, 6, 6],
             filename:     fileName,
-            image:        { type: 'jpeg', quality: 0.92 },
-            html2canvas:  { scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 750 },
+            image:        { type: 'jpeg', quality: 0.95 },
+            html2canvas:  { scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 800 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
         const pdfWorker = html2pdf().set(opt).from(element);
         const pdfBlob = await pdfWorker.output('blob');
+        document.body.removeChild(element);
 
         // 2. Prepare Telegram FormData payload
         const sumHeader = list.headers.find(h => h.role === 'sum');
