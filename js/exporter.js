@@ -107,14 +107,22 @@ function buildCleanExportHTML() {
 
     const wrapper = document.createElement('div');
     wrapper.id = 'pdfExportContainer';
-    wrapper.style.backgroundColor = '#ffffff';
-    wrapper.style.color = '#1e293b';
-    wrapper.style.padding = '16px';
     wrapper.style.fontFamily = "Tahoma, Arial, sans-serif";
     wrapper.style.direction = 'rtl';
-    wrapper.style.width = '750px'; // Fits A4 portrait perfectly
+    wrapper.style.width = '794px'; // Fits A4 portrait perfectly (210mm at 96dpi)
     wrapper.style.margin = '0 auto';
     wrapper.style.boxSizing = 'border-box';
+
+    // Inject CSS for printing and html2canvas exact colors
+    const styleBlock = document.createElement('style');
+    styleBlock.textContent = `
+        #pdfExportContainer * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            direction: rtl !important;
+        }
+    `;
+    wrapper.appendChild(styleBlock);
 
     // Title & Metadata Header
     let html = `
@@ -289,24 +297,56 @@ async function executePDFExport() {
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد والتحميل...';
 
         const element = buildCleanExportHTML();
-        // Append behind everything at top-left to avoid viewport cropping and -9999px issues
+        // Append behind everything at top-left to avoid viewport cropping
         element.style.position = 'absolute';
         element.style.top = '0';
         element.style.left = '0';
         element.style.zIndex = '-9999';
-        element.style.width = '750px';
+        element.style.width = '794px';
         document.body.appendChild(element);
 
-        const opt = {
-            margin:       [6, 6, 6, 6],
-            filename:     fileName,
-            image:        { type: 'jpeg', quality: 1.0 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 800 },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        await html2pdf().set(opt).from(element).save();
+        // Render Canvas with html2canvas (v1.4.1 handles Arabic RTL much better)
+        const canvas = await html2canvas(element, { 
+            scale: 2, 
+            useCORS: true, 
+            logging: false, 
+            scrollX: 0, 
+            scrollY: 0, 
+            windowWidth: 850 
+        });
+        
         document.body.removeChild(element);
+
+        // Convert Canvas to PDF pages using jsPDF
+        const imgData = canvas.toDataURL('image/jpeg', 0.98);
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
+        const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+        
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = pdfWidth / imgWidth;
+        const finalHeight = imgHeight * ratio; // height in mm
+        
+        let heightLeft = finalHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, finalHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 0) {
+            position = heightLeft - finalHeight; // move image up by page heights
+            // Or alternatively, just move position down by pdfHeight
+            // Correct logic for multiple pages:
+            position -= pdfHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, finalHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        pdf.save(fileName);
         closePreviewModal();
     } catch (err) {
         console.error('PDF export error:', err);
@@ -333,10 +373,10 @@ async function executeImageExport() {
         element.style.top = '0';
         element.style.left = '0';
         element.style.zIndex = '-9999';
-        element.style.width = '750px';
+        element.style.width = '794px';
         document.body.appendChild(element);
 
-        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 800 });
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 850 });
         document.body.removeChild(element);
 
         const link = document.createElement('a');
@@ -412,20 +452,43 @@ async function executeTelegramPDFExport() {
         element.style.top = '0';
         element.style.left = '0';
         element.style.zIndex = '-9999';
-        element.style.width = '750px';
+        element.style.width = '794px';
         document.body.appendChild(element);
 
-        const opt = {
-            margin:       [6, 6, 6, 6],
-            filename:     fileName,
-            image:        { type: 'jpeg', quality: 0.95 },
-            html2canvas:  { scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 800 },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        const pdfWorker = html2pdf().set(opt).from(element);
-        const pdfBlob = await pdfWorker.output('blob');
+        const canvas = await html2canvas(element, { 
+            scale: 1.5, 
+            useCORS: true, 
+            logging: false, 
+            scrollX: 0, 
+            scrollY: 0, 
+            windowWidth: 850 
+        });
+        
         document.body.removeChild(element);
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const ratio = pdfWidth / canvas.width;
+        const finalHeight = canvas.height * ratio;
+        
+        let heightLeft = finalHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, finalHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 0) {
+            position -= pdfHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, finalHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        const pdfBlob = pdf.output('blob');
 
         // 2. Prepare Telegram FormData payload
         const sumHeader = list.headers.find(h => h.role === 'sum');
