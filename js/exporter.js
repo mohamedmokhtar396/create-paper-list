@@ -285,6 +285,65 @@ function executeNativePrintPDF() {
     closePreviewModal();
 }
 
+// Helper: Robust PDF/Image generation using an isolated Iframe (bypassing main CSS/CORS crashes)
+async function generateExportCanvasData(type = 'jpeg', scale = 2) {
+    const list = getActiveList();
+    const cleanElement = buildCleanExportHTML();
+    
+    // Create an isolated iframe to completely bypass main-page CSS/CORS issues
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.top = '0';
+    iframe.style.left = '0';
+    iframe.style.width = '794px'; 
+    iframe.style.height = '1123px'; 
+    iframe.style.zIndex = '-9999';
+    iframe.style.visibility = 'hidden'; 
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    // Inject the raw HTML WITHOUT any external stylesheets (No FontAwesome, No Tailwind)
+    doc.write(`
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Tahoma, Arial, sans-serif; direction: rtl; margin: 0; padding: 20px; background: #ffffff; color: #1e293b; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: auto; }
+                th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-size: 11px; }
+                th { background-color: #1e293b !important; color: #ffffff !important; font-weight: 700; }
+                tfoot td { background-color: #f1f5f9 !important; font-weight: 800; color: #0f172a; }
+            </style>
+        </head>
+        <body>
+            <div id="captureArea" style="width: 794px; background: #ffffff; margin: 0 auto;">
+                ${cleanElement.innerHTML}
+            </div>
+        </body>
+        </html>
+    `);
+    doc.close();
+
+    // Give iframe time to parse and render
+    await new Promise(r => setTimeout(r, 400));
+
+    // Capture the isolated element inside the iframe!
+    const targetEl = doc.getElementById('captureArea');
+    const elRect = targetEl.getBoundingClientRect();
+
+    let dataUrl;
+    if (type === 'png') {
+        dataUrl = await htmlToImage.toPng(targetEl, { backgroundColor: '#ffffff', pixelRatio: scale });
+    } else {
+        dataUrl = await htmlToImage.toJpeg(targetEl, { quality: 1.0, backgroundColor: '#ffffff', pixelRatio: scale });
+    }
+
+    document.body.removeChild(iframe);
+    return { dataUrl, width: elRect.width, height: elRect.height };
+}
+
 // Direct PDF File Download Execution (Uses high quality rendering with auto table layout)
 async function executePDFExport() {
     const listTitle = getActiveList().title;
@@ -296,37 +355,16 @@ async function executePDFExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد والتحميل...';
 
-        const element = buildCleanExportHTML();
-        // Append to body with absolute positioning outside normal flow to allow painting
-        element.style.position = 'absolute';
-        element.style.top = '0';
-        element.style.left = '0';
-        element.style.zIndex = '-9999';
-        element.style.width = '794px';
-        document.body.appendChild(element);
-
-        // Wait for browser to layout and paint the element
-        await new Promise(r => setTimeout(r, 400));
-
-        // Use htmlToImage for perfect RTL Arabic rendering
-        const dataUrl = await htmlToImage.toJpeg(element, { 
-            quality: 1.0, 
-            backgroundColor: '#ffffff',
-            pixelRatio: 2 // High resolution
-        });
-        
-        const elRect = element.getBoundingClientRect();
-        document.body.removeChild(element);
+        const { dataUrl, width, height } = await generateExportCanvasData('jpeg', 2);
 
         // Convert to PDF pages using jsPDF
         const jsPDF = window.jspdf.jsPDF;
         const pdf = new jsPDF('p', 'mm', 'a4');
         
-        const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
-        const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-        
-        const ratio = pdfWidth / elRect.width;
-        const finalHeight = elRect.height * ratio; // total height in mm
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const ratio = pdfWidth / width;
+        const finalHeight = height * ratio;
         
         let heightLeft = finalHeight;
         let position = 0;
@@ -363,22 +401,7 @@ async function executeImageExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد...';
 
-        const element = buildCleanExportHTML();
-        element.style.position = 'absolute';
-        element.style.top = '0';
-        element.style.left = '0';
-        element.style.zIndex = '-9999';
-        element.style.width = '794px';
-        document.body.appendChild(element);
-
-        await new Promise(r => setTimeout(r, 400));
-
-        const dataUrl = await htmlToImage.toPng(element, { 
-            backgroundColor: '#ffffff',
-            pixelRatio: 2
-        });
-        
-        document.body.removeChild(element);
+        const { dataUrl } = await generateExportCanvasData('png', 2);
 
         const link = document.createElement('a');
         link.download = fileName;
@@ -447,33 +470,16 @@ async function executeTelegramPDFExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التجهيز والرفع...';
 
-        // 1. Optimized Fast PDF Blob Generation with html-to-image
-        const element = buildCleanExportHTML();
-        element.style.position = 'absolute';
-        element.style.top = '0';
-        element.style.left = '0';
-        element.style.zIndex = '-9999';
-        element.style.width = '794px';
-        document.body.appendChild(element);
-
-        await new Promise(r => setTimeout(r, 400));
-
-        const dataUrl = await htmlToImage.toJpeg(element, { 
-            quality: 0.95, 
-            backgroundColor: '#ffffff',
-            pixelRatio: 1.5
-        });
-        
-        const elRect = element.getBoundingClientRect();
-        document.body.removeChild(element);
+        // 1. Optimized Fast PDF Blob Generation using isolated Iframe
+        const { dataUrl, width, height } = await generateExportCanvasData('jpeg', 1.5);
 
         const jsPDF = window.jspdf.jsPDF;
         const pdf = new jsPDF('p', 'mm', 'a4');
         
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
-        const ratio = pdfWidth / elRect.width;
-        const finalHeight = elRect.height * ratio;
+        const ratio = pdfWidth / width;
+        const finalHeight = height * ratio;
         
         let heightLeft = finalHeight;
         let position = 0;
