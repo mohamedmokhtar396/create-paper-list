@@ -305,48 +305,16 @@ async function executePDFExport() {
         element.style.width = '794px';
         document.body.appendChild(element);
 
-        // Render Canvas with html2canvas (v1.4.1 handles Arabic RTL much better)
-        const canvas = await html2canvas(element, { 
-            scale: 2, 
-            useCORS: true, 
-            logging: false, 
-            scrollX: 0, 
-            scrollY: 0, 
-            windowWidth: 850 
-        });
-        
+        const opt = {
+            margin:       [6, 6, 6, 6],
+            filename:     fileName,
+            image:        { type: 'jpeg', quality: 1.0 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 800 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        await html2pdf().set(opt).from(element).save();
         document.body.removeChild(element);
-
-        // Convert Canvas to PDF pages using jsPDF
-        const imgData = canvas.toDataURL('image/jpeg', 0.98);
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        
-        const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
-        const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-        
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = pdfWidth / imgWidth;
-        const finalHeight = imgHeight * ratio; // height in mm
-        
-        let heightLeft = finalHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, finalHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft > 0) {
-            position = heightLeft - finalHeight; // move image up by page heights
-            // Or alternatively, just move position down by pdfHeight
-            // Correct logic for multiple pages:
-            position -= pdfHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, finalHeight);
-            heightLeft -= pdfHeight;
-        }
-
-        pdf.save(fileName);
         closePreviewModal();
     } catch (err) {
         console.error('PDF export error:', err);
@@ -455,40 +423,17 @@ async function executeTelegramPDFExport() {
         element.style.width = '794px';
         document.body.appendChild(element);
 
-        const canvas = await html2canvas(element, { 
-            scale: 1.5, 
-            useCORS: true, 
-            logging: false, 
-            scrollX: 0, 
-            scrollY: 0, 
-            windowWidth: 850 
-        });
-        
+        const opt = {
+            margin:       [6, 6, 6, 6],
+            filename:     fileName,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 800 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        const pdfWorker = html2pdf().set(opt).from(element);
+        const pdfBlob = await pdfWorker.output('blob');
         document.body.removeChild(element);
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const ratio = pdfWidth / canvas.width;
-        const finalHeight = canvas.height * ratio;
-        
-        let heightLeft = finalHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, finalHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft > 0) {
-            position -= pdfHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, finalHeight);
-            heightLeft -= pdfHeight;
-        }
-
-        const pdfBlob = pdf.output('blob');
 
         // 2. Prepare Telegram FormData payload
         const sumHeader = list.headers.find(h => h.role === 'sum');
