@@ -154,7 +154,7 @@ function renderRawTable() {
     });
 }
 
-// Helper: Build HTML Table Rows for an aggregated list array
+// Helper: Build HTML Table Rows for an aggregated list array with text-wrap support
 function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpecialTable = false) {
     const sumHeaders = headers.filter(h => h.role === 'sum');
     const filtered = aggregatedList.filter(row => {
@@ -173,32 +173,32 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpec
 
     filtered.forEach((row, idx) => {
         rowsHTML += `<tr class="${idx % 2 === 0 ? 'bg-white' : (isSpecialTable ? 'bg-amber-50/50' : 'bg-slate-50')}">`;
-        rowsHTML += `<td class="p-1.5 border border-slate-200 text-center font-bold text-slate-500">${formatEnglishNumber(idx + 1, false)}</td>`;
+        rowsHTML += `<td class="p-1.5 border border-slate-200 text-center font-bold text-slate-500 whitespace-nowrap">${formatEnglishNumber(idx + 1, false)}</td>`;
         
         headers.forEach(h => {
             if (h.role === 'group') {
                 const val = row.groupValues[h.id] || '';
                 const formatted = formatCellValueWithUnit(val, h.name, false);
-                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold">${formatted}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold whitespace-normal break-words leading-relaxed">${formatted}</td>`;
             } else if (h.role === 'sum') {
                 const val = row.sumValues[h.id] || 0;
                 totals[h.id] += val;
                 const formatted = formatCellValueWithUnit(val, h.name, true);
-                rowsHTML += `<td class="p-1.5 border border-slate-200 font-bold ${isSpecialTable ? 'text-amber-800' : 'text-indigo-700'}">${formatted}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 font-bold ${isSpecialTable ? 'text-amber-800' : 'text-indigo-700'} whitespace-nowrap">${formatted}</td>`;
             } else {
                 const valArr = (row.infoValues[h.id] || []).filter(Boolean);
                 const valStr = valArr.map(v => formatCellValueWithUnit(v, h.name, false)).join(', ');
-                rowsHTML += `<td class="p-1.5 border border-slate-200 text-slate-500 text-[11px]">${valStr || '-'}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 text-slate-600 text-[11px] whitespace-normal break-words leading-relaxed">${valStr || '-'}</td>`;
             }
         });
         
-        rowsHTML += `<td class="p-1.5 border border-slate-200 text-center font-semibold text-amber-700 bg-amber-50/50">${formatEnglishNumber(row.count, false)}</td></tr>`;
+        rowsHTML += `<td class="p-1.5 border border-slate-200 text-center font-semibold text-amber-700 bg-amber-50/50 whitespace-nowrap">${formatEnglishNumber(row.count, false)}</td></tr>`;
     });
 
     return { html: rowsHTML, totals };
 }
 
-// Render Aggregated Final Results Table (Right Panel) with Multi-Table Support
+// Render Aggregated Final Results Table (Right Panel) with Multi-Table & Text Wrap Support
 function renderAggregatedTable() {
     const list = getActiveList();
     const resultCategories = computeAggregatedData();
@@ -254,13 +254,13 @@ function renderAggregatedTable() {
                 <table class="w-full text-right text-xs border-collapse">
                     <thead>
                         <tr class="${headerBg}">
-                            <th class="p-1.5 border border-slate-700 text-center">م</th>
+                            <th class="p-1.5 border border-slate-700 text-center w-8">م</th>
         `;
 
         list.headers.forEach(h => {
             containerHTML += `<th class="p-1.5 border border-slate-700">${h.name}</th>`;
         });
-        containerHTML += `<th class="p-1.5 border border-slate-700 text-center">عدد</th></tr></thead><tbody>`;
+        containerHTML += `<th class="p-1.5 border border-slate-700 text-center w-12">عدد</th></tr></thead><tbody>`;
 
         const sectionRes = buildAggregatedTableSection(catGroup.aggregated, list.headers, filterText, isSpecial);
         containerHTML += sectionRes.html;

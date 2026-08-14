@@ -76,7 +76,7 @@ function getExportFileName(fallbackName = 'تقرير_الأصناف', extension
     return name;
 }
 
-// Helper: Build a Clean, Full-Width HTML Element for Printing & Exporting Multi-Tables
+// Helper: Build a Clean, Full-Width HTML Element for Printing & Exporting Multi-Tables with Text Wrap
 function buildCleanExportHTML() {
     const list = getActiveList();
     const resultCategories = computeAggregatedData();
@@ -87,10 +87,10 @@ function buildCleanExportHTML() {
     wrapper.id = 'pdfExportContainer';
     wrapper.style.backgroundColor = '#ffffff';
     wrapper.style.color = '#1e293b';
-    wrapper.style.padding = '20px';
+    wrapper.style.padding = '24px';
     wrapper.style.fontFamily = "'Cairo', sans-serif";
     wrapper.style.direction = 'rtl';
-    wrapper.style.width = '750px';
+    wrapper.style.width = '800px';
     wrapper.style.margin = '0 auto';
     wrapper.style.boxSizing = 'border-box';
 
@@ -121,22 +121,22 @@ function buildCleanExportHTML() {
             <div style="margin-bottom: 24px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <h3 style="margin: 0; color: ${titleColor}; font-size: 14px; font-weight: 800;">${catGroup.name}</h3>
-                    <span style="font-size: 11px; font-weight: bold; color: ${isSpecial ? '#78350f' : '#4338ca'}; background-color: ${isSpecial ? '#fef3c7' : '#e0e7ff'}; padding: 2px 8px; border-radius: 4px;">
+                    <span style="font-size: 11px; font-weight: bold; color: ${isSpecial ? '#78350f' : '#4338ca'}; background-color: ${isSpecial ? '#fef3c7' : '#e0e7ff'}; padding: 3px 10px; border-radius: 6px;">
                         إجمالي الجدول: ${sumHeader ? formatCellValueWithUnit(catGroup.totalWeight, sumHeader.name, true) : formatEnglishNumber(catGroup.totalWeight)}
                     </span>
                 </div>
 
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: auto;">
                     <thead>
                         <tr style="background-color: ${tableHeaderBg}; color: #ffffff;">
-                            <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 35px; font-size: 11px;">م</th>
+                            <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 35px; font-size: 11px; white-space: nowrap;">م</th>
         `;
 
         list.headers.forEach(h => {
-            html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-size: 11px;">${h.name}</th>`;
+            html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; font-size: 11px; white-space: normal; word-break: break-word;">${h.name}</th>`;
         });
 
-        html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 50px; font-size: 11px;">عدد</th></tr></thead><tbody>`;
+        html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 45px; font-size: 11px; white-space: nowrap;">عدد</th></tr></thead><tbody>`;
 
         const totals = {};
         sumHeaders.forEach(h => totals[h.id] = 0);
@@ -146,26 +146,26 @@ function buildCleanExportHTML() {
         } else {
             catGroup.aggregated.forEach((row, idx) => {
                 html += `<tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : (isSpecial ? '#fffbeb' : '#f8fafc')};">`;
-                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #475569; font-size: 11px;">${formatEnglishNumber(idx + 1, false)}</td>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #475569; font-size: 11px; white-space: nowrap;">${formatEnglishNumber(idx + 1, false)}</td>`;
                 
                 list.headers.forEach(h => {
                     if (h.role === 'group') {
                         const val = row.groupValues[h.id] || '';
                         const formatted = formatCellValueWithUnit(val, h.name, false);
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 600; font-size: 11px;">${formatted}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 600; font-size: 11px; white-space: normal; word-break: break-word; line-height: 1.5;">${formatted}</td>`;
                     } else if (h.role === 'sum') {
                         const val = row.sumValues[h.id] || 0;
                         totals[h.id] += val;
                         const formatted = formatCellValueWithUnit(val, h.name, true);
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 700; color: ${isSpecial ? '#92400e' : '#4338ca'}; font-size: 11px;">${formatted}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: 700; color: ${isSpecial ? '#92400e' : '#4338ca'}; font-size: 11px; white-space: nowrap;">${formatted}</td>`;
                     } else {
                         const valArr = (row.infoValues[h.id] || []).filter(Boolean);
                         const valStr = valArr.map(v => formatCellValueWithUnit(v, h.name, false)).join(', ');
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; color: #64748b; font-size: 10px;">${valStr || '-'}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; color: #64748b; font-size: 10px; white-space: normal; word-break: break-word; line-height: 1.4;">${valStr || '-'}</td>`;
                     }
                 });
 
-                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #b45309; background-color: #fef3c7; font-size: 11px;">${formatEnglishNumber(row.count, false)}</td></tr>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #b45309; background-color: #fef3c7; font-size: 11px; white-space: nowrap;">${formatEnglishNumber(row.count, false)}</td></tr>`;
             });
         }
 
@@ -270,7 +270,7 @@ function executeWordExport() {
     <style>
         body { font-family: Cairo, Arial, sans-serif; direction: rtl; }
         table { border-collapse: collapse; width: 100%; margin-top: 10px; margin-bottom: 15px; }
-        th, td { border: 1px solid #333; padding: 6px 10px; text-align: right; font-size: 12px; }
+        th, td { border: 1px solid #333; padding: 6px 10px; text-align: right; font-size: 12px; white-space: normal !important; word-break: break-word !important; }
         th { background-color: #1e293b; color: #fff; }
         tfoot td { background-color: #f1f5f9; font-weight: bold; }
     </style>
