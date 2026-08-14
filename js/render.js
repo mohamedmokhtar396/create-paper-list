@@ -27,12 +27,44 @@ function renderListTabs() {
     });
 }
 
-// Render Dynamic Header Control Pills & Category Adder
+// Render Dynamic Header Control Pills & Category Table Pills
 function renderHeadersControl() {
     const list = getActiveList();
     const container = document.getElementById('headersContainer');
     if (!container) return;
     container.innerHTML = '';
+
+    const categories = list.categories || defaultCategories;
+
+    // 1. Render Table Category Manager Pills
+    const catGroupWrapper = document.createElement('div');
+    catGroupWrapper.className = "w-full flex flex-wrap items-center gap-2 border-b pb-2 mb-2";
+    catGroupWrapper.innerHTML = `<span class="text-xs font-bold text-indigo-900 flex items-center gap-1"><i class="fa-solid fa-folder font-normal text-indigo-600"></i> الجداول المخصصة:</span>`;
+    
+    categories.forEach(cat => {
+        const isSpecial = cat.id === 'cat_special';
+        const catPill = document.createElement('div');
+        catPill.className = `flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${isSpecial ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-indigo-50 text-indigo-800 border-indigo-200'}`;
+        catPill.innerHTML = `
+            <span>${cat.name}</span>
+            <i class="fa-solid fa-pen text-[10px] hover:text-indigo-600 cursor-pointer px-0.5" onclick="renameTableCategory('${cat.id}')" title="تعديل اسم هذا الجدول"></i>
+            ${categories.length > 1 ? `<i class="fa-solid fa-trash-can text-[10px] hover:text-rose-600 cursor-pointer px-0.5" onclick="deleteTableCategory('${cat.id}')" title="حذف هذا الجدول"></i>` : ''}
+        `;
+        catGroupWrapper.appendChild(catPill);
+    });
+
+    const addCatBtn = document.createElement('button');
+    addCatBtn.onclick = addNewTableCategoryPrompt;
+    addCatBtn.className = "text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm";
+    addCatBtn.innerHTML = `<i class="fa-solid fa-plus text-[10px]"></i> إضافة جدول جديد`;
+    catGroupWrapper.appendChild(addCatBtn);
+
+    container.appendChild(catGroupWrapper);
+
+    // 2. Render Column Header Control Pills
+    const headersWrapper = document.createElement('div');
+    headersWrapper.className = "w-full flex flex-wrap items-center gap-2";
+    headersWrapper.innerHTML = `<span class="text-xs font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-columns font-normal text-slate-500"></i> أعمدة البيانات:</span>`;
 
     list.headers.forEach(h => {
         const pill = document.createElement('div');
@@ -51,11 +83,13 @@ function renderHeadersControl() {
             <i class="fa-solid fa-pen text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer px-0.5" onclick="renameHeader('${h.id}')" title="تعديل اسم العمود"></i>
             ${list.headers.length > 1 ? `<i class="fa-solid fa-trash-can text-[10px] text-slate-400 hover:text-rose-600 cursor-pointer px-0.5" onclick="deleteHeader('${h.id}')"></i>` : ''}
         `;
-        container.appendChild(pill);
+        headersWrapper.appendChild(pill);
     });
+
+    container.appendChild(headersWrapper);
 }
 
-// Render Raw Input Table (Left Panel) with Category Dropdown, Editable Code & Drag-and-Drop
+// Render Raw Input Table (Left Panel) with Category Dropdown, Editable Code & Text Wrap
 function renderRawTable() {
     const list = getActiveList();
     const thead = document.getElementById('rawTableHeader');
@@ -66,7 +100,7 @@ function renderRawTable() {
 
     // Header HTML with Reorder, Category Select & Editable Code
     let thHTML = '<th class="p-2 border border-slate-200 text-center w-10" title="ترتيب وتحريك الأسطر يدوياً"><i class="fa-solid fa-up-down text-indigo-600"></i></th>';
-    thHTML += '<th class="p-2 border border-slate-200 text-center w-28" title="تحديد الجدول أو تصنيف الصنف">الجدول / التصنيف</th>';
+    thHTML += '<th class="p-2 border border-slate-200 text-center w-32" title="تحديد الجدول أو تصنيف الصنف">الجدول / التصنيف</th>';
     thHTML += '<th class="p-2 border border-slate-200 text-center w-16" title="كود الصنف (قابل للتعديل يدويًا)">الكود #</th>';
     list.headers.forEach(h => {
         const suffix = getUnitSuffix(h.name);
@@ -105,12 +139,13 @@ function renderRawTable() {
             </td>
         `;
 
-        // Category Selector Dropdown
+        // Category Selector Dropdown with ADD_NEW Option
         let catOptions = '';
         categories.forEach(cat => {
             const selected = item.categoryId === cat.id ? 'selected' : '';
             catOptions += `<option value="${cat.id}" ${selected}>${cat.name}</option>`;
         });
+        catOptions += `<option value="ADD_NEW" class="font-bold text-indigo-600">+ إضافة جدول جديد...</option>`;
 
         tdHTML += `
             <td class="p-1 border border-slate-200 text-center">
@@ -135,12 +170,14 @@ function renderRawTable() {
         list.headers.forEach(h => {
             const val = item[h.id] !== undefined ? toEnglishDigits(item[h.id]) : '';
             const isNum = h.role === 'sum';
+            const isTypeOrText = h.role === 'group' || h.role === 'info';
+
             tdHTML += `
                 <td class="p-1 border border-slate-200">
                     <input type="${isNum ? 'number' : 'text'}" value="${val}" 
                         onchange="updateItemValue('${item.id}', '${h.id}', this.value)"
                         placeholder="${isNum ? '0' : ''}"
-                        class="w-full p-1 text-xs bg-transparent border border-transparent focus:border-indigo-400 focus:bg-white rounded outline-none transition">
+                        class="w-full p-1 text-xs bg-transparent border border-transparent focus:border-indigo-400 focus:bg-white rounded outline-none transition ${isTypeOrText ? 'whitespace-normal break-words' : ''}">
                 </td>
             `;
         });
@@ -179,7 +216,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpec
             if (h.role === 'group') {
                 const val = row.groupValues[h.id] || '';
                 const formatted = formatCellValueWithUnit(val, h.name, false);
-                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold whitespace-normal break-words leading-relaxed">${formatted}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold whitespace-normal break-words leading-relaxed min-w-[130px]">${formatted}</td>`;
             } else if (h.role === 'sum') {
                 const val = row.sumValues[h.id] || 0;
                 totals[h.id] += val;
@@ -188,7 +225,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpec
             } else {
                 const valArr = (row.infoValues[h.id] || []).filter(Boolean);
                 const valStr = valArr.map(v => formatCellValueWithUnit(v, h.name, false)).join(', ');
-                rowsHTML += `<td class="p-1.5 border border-slate-200 text-slate-600 text-[11px] whitespace-normal break-words leading-relaxed">${valStr || '-'}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 text-slate-600 text-[11px] whitespace-normal break-words leading-relaxed min-w-[100px]">${valStr || '-'}</td>`;
             }
         });
         

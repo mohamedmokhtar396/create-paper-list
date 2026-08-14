@@ -113,7 +113,7 @@ function updateListSubTitle() {
 
 // Custom Table Category Management
 function addNewTableCategoryPrompt() {
-    const name = prompt('أدخل اسم الجدول الجديد (مثال: برستول كوشيه، ظهر كرافت، ورق سلوفان...):');
+    const name = prompt('أدخل اسم الجدول الجديد (مثال: جدول ورق سلوفان، جدول الكرتون...):');
     if (!name || !name.trim()) return;
     const list = getActiveList();
     const newCat = {
@@ -135,12 +135,49 @@ function renameTableCategory(catId) {
     }
 }
 
+function deleteTableCategory(catId) {
+    const list = getActiveList();
+    if (list.categories.length <= 1) {
+        alert('يجب أن تحتوي القائمة على جدول واحد على الأقل.');
+        return;
+    }
+    const cat = list.categories.find(c => c.id === catId);
+    if (!cat) return;
+    if (confirm(`هل أنت تأكد من حذف الجدول "${cat.name}"؟ سيتم نقل أصنافه إلى الجدول الأول.`)) {
+        list.categories = list.categories.filter(c => c.id !== catId);
+        const fallbackCatId = list.categories[0].id;
+        list.items.forEach(item => {
+            if (item.categoryId === catId) item.categoryId = fallbackCatId;
+        });
+        renderApp();
+    }
+}
+
 function updateItemCategory(itemId, categoryId) {
+    if (categoryId === 'ADD_NEW') {
+        const name = prompt('أدخل اسم الجدول الجديد (مثال: جدول ورق سلوفان، جدول الكرتون...):');
+        if (name && name.trim()) {
+            const list = getActiveList();
+            const newCat = {
+                id: 'cat_' + Date.now(),
+                name: name.trim()
+            };
+            list.categories.push(newCat);
+            const item = list.items.find(i => i.id === itemId);
+            if (item) {
+                item.categoryId = newCat.id;
+                item.isSpecial = false;
+            }
+            renderApp();
+        } else {
+            renderRawTable();
+        }
+        return;
+    }
     const list = getActiveList();
     const item = list.items.find(i => i.id === itemId);
     if (item) {
         item.categoryId = categoryId;
-        // Keep isSpecial synced if category is special
         item.isSpecial = (categoryId === 'cat_special');
         renderAggregatedTable();
         updateStats();
