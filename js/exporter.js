@@ -87,15 +87,15 @@ function formatPdfCellValueWithUnit(value, headerName, isSum = false) {
         const numVal = parseFloat(strVal) || 0;
         const formattedNum = formatEnglishNumber(numVal);
         return suffix 
-            ? `<span style="direction: ltr; unicode-bidi: embed; font-weight: 800;">${formattedNum}</span>&nbsp;<span style="font-size: 10px; font-weight: normal; color: #4338ca; margin-right: 3px; display: inline-block;">${suffix}</span>`
-            : `<span style="direction: ltr; unicode-bidi: embed; font-weight: 800;">${formattedNum}</span>`;
+            ? `<span style="font-weight: 800; font-family: Tahoma, Arial, sans-serif;">${formattedNum}</span>&nbsp;<span style="font-size: 10px; font-weight: normal; color: #4338ca; margin-right: 4px; display: inline-block;">${suffix}</span>`
+            : `<span style="font-weight: 800; font-family: Tahoma, Arial, sans-serif;">${formattedNum}</span>`;
     }
 
     if (suffix) {
         if (strVal.endsWith(suffix)) {
             strVal = strVal.replace(suffix, '').trim();
         }
-        return `<span style="direction: ltr; unicode-bidi: embed; font-weight: 600;">${strVal}</span>&nbsp;<span style="font-size: 10px; color: #475569; margin-right: 3px; display: inline-block;">${suffix}</span>`;
+        return `<span style="font-weight: 600; font-family: Tahoma, Arial, sans-serif;">${strVal}</span>&nbsp;<span style="font-size: 10px; color: #475569; margin-right: 4px; display: inline-block;">${suffix}</span>`;
     }
     return strVal;
 }
@@ -112,17 +112,18 @@ function buildCleanExportHTML() {
     wrapper.style.backgroundColor = '#ffffff';
     wrapper.style.color = '#1e293b';
     wrapper.style.padding = '15px';
-    wrapper.style.fontFamily = "'Cairo', sans-serif";
+    wrapper.style.fontFamily = "Tahoma, Arial, 'Cairo', sans-serif"; // Tahoma/Arial prevents html2canvas Arabic text overlapping
     wrapper.style.direction = 'rtl';
-    wrapper.style.width = '700px'; // Exactly fits A4 portrait width at 96DPI with margins
+    wrapper.style.width = '680px'; // Fits A4 portrait width perfectly inside printable margins
     wrapper.style.margin = '0 auto';
     wrapper.style.boxSizing = 'border-box';
     wrapper.style.overflow = 'hidden';
+    wrapper.style.letterSpacing = 'normal';
 
     // Title & Metadata Header
     let html = `
         <div style="text-align: center; margin-bottom: 16px; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px;">
-            <h2 style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px; font-weight: 800;">${list.title}</h2>
+            <h2 style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px; font-weight: 800; font-family: Tahoma, Arial, sans-serif;">${list.title}</h2>
             <p style="margin: 0 0 4px 0; color: #475569; font-size: 11px; font-weight: 600;">${list.subTitle || 'تقرير الأصناف واللوائح المدمجة'}</p>
             <p style="margin: 0; color: #64748b; font-size: 10px;">تاريخ التقرير: ${new Date().toLocaleDateString('en-GB')}</p>
         </div>
@@ -145,7 +146,7 @@ function buildCleanExportHTML() {
         html += `
             <div style="margin-bottom: 20px; width: 100%; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <h3 style="margin: 0; color: ${titleColor}; font-size: 13px; font-weight: 800;">${catGroup.name}</h3>
+                    <h3 style="margin: 0; color: ${titleColor}; font-size: 13px; font-weight: 800; font-family: Tahoma, Arial, sans-serif;">${catGroup.name}</h3>
                     <span style="font-size: 10px; font-weight: bold; color: ${isSpecial ? '#78350f' : '#4338ca'}; background-color: ${isSpecial ? '#fef3c7' : '#e0e7ff'}; padding: 2px 8px; border-radius: 4px;">
                         إجمالي الجدول: ${sumHeader ? formatCellValueWithUnit(catGroup.totalWeight, sumHeader.name, true) : formatEnglishNumber(catGroup.totalWeight)}
                     </span>
@@ -161,10 +162,10 @@ function buildCleanExportHTML() {
         const headerCount = list.headers.length;
         list.headers.forEach(h => {
             let colWidth = `${Math.floor(88 / headerCount)}%`;
-            if (h.name.includes('النوع') || h.role === 'group') colWidth = '32%';
+            if (h.name.includes('النوع') || h.role === 'group') colWidth = '34%';
             else if (h.role === 'sum') colWidth = '16%';
             
-            html += `<th style="border: 1px solid #cbd5e1; padding: 6px 6px; text-align: right; font-size: 10px; white-space: nowrap; width: ${colWidth};">${h.name}</th>`;
+            html += `<th style="border: 1px solid #cbd5e1; padding: 6px 6px; text-align: right; font-size: 10px; white-space: nowrap; width: ${colWidth}; font-family: Tahoma, Arial, sans-serif;">${h.name}</th>`;
         });
 
         html += `<th style="border: 1px solid #cbd5e1; padding: 6px 4px; text-align: center; width: 40px; font-size: 10px; white-space: nowrap;">عدد</th></tr></thead><tbody>`;
@@ -183,7 +184,7 @@ function buildCleanExportHTML() {
                     if (h.role === 'group') {
                         const val = row.groupValues[h.id] || '';
                         const formatted = formatPdfCellValueWithUnit(val, h.name, false);
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; font-weight: 600; font-size: 10px; white-space: normal; word-break: break-word; line-height: 1.4;">${formatted}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; font-weight: 600; font-size: 10px; white-space: normal; word-break: break-word; line-height: 1.4; font-family: Tahoma, Arial, sans-serif;">${formatted}</td>`;
                     } else if (h.role === 'sum') {
                         const val = row.sumValues[h.id] || 0;
                         totals[h.id] += val;
@@ -192,7 +193,7 @@ function buildCleanExportHTML() {
                     } else {
                         const valArr = (row.infoValues[h.id] || []).filter(Boolean);
                         const valStr = valArr.map(v => formatPdfCellValueWithUnit(v, h.name, false)).join(', ');
-                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; color: #64748b; font-size: 9px; white-space: normal; word-break: break-word; line-height: 1.3;">${valStr || '-'}</td>`;
+                        html += `<td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; color: #64748b; font-size: 9px; white-space: normal; word-break: break-word; line-height: 1.3; font-family: Tahoma, Arial, sans-serif;">${valStr || '-'}</td>`;
                     }
                 });
 
@@ -229,7 +230,55 @@ function buildCleanExportHTML() {
     return wrapper;
 }
 
-// PDF Download Execution with 100% A4 Fit
+// Native Printable Vector PDF Engine (100% Identical to Preview Modal, ZERO text overlap)
+function executeNativePrintPDF() {
+    const list = getActiveList();
+    const fileName = getExportFileName(`${list.title}_المدمجة`, '');
+    const cleanElement = buildCleanExportHTML();
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('يرجى السماح بالنوافذ المنبثقة (Pop-ups) للطباعة والتنزيل.');
+        return;
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <title>${fileName}</title>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+                body { font-family: 'Cairo', Tahoma, Arial, sans-serif; direction: rtl; margin: 0; padding: 15px; background: #ffffff; color: #1e293b; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
+                th, td { border: 1px solid #cbd5e1; padding: 5px 7px; text-align: right; font-size: 11px; }
+                th { background-color: #1e293b !important; color: #ffffff !important; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                tfoot td { background-color: #f1f5f9 !important; font-weight: 800; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                @media print {
+                    body { padding: 0; }
+                    @page { size: A4 portrait; margin: 8mm; }
+                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                }
+            </style>
+        </head>
+        <body>
+            ${cleanElement.innerHTML}
+            <script>
+                window.onload = function() {
+                    setTimeout(function() {
+                        window.print();
+                    }, 250);
+                };
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    closePreviewModal();
+}
+
+// PDF Download Execution
 async function executePDFExport() {
     const listTitle = getActiveList().title;
     const fileName = getExportFileName(`${listTitle}_المدمجة`, '.pdf');
@@ -238,7 +287,7 @@ async function executePDFExport() {
 
     try {
         actionBtn.disabled = true;
-        actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري توليد PDF...';
+        actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد والتحميل...';
 
         const element = document.getElementById('pdfExportContainer') || document.getElementById('previewModalContent');
 
@@ -246,7 +295,7 @@ async function executePDFExport() {
             margin:       [6, 6, 6, 6],
             filename:     fileName,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 1.8, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 720 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 700 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
@@ -254,7 +303,8 @@ async function executePDFExport() {
         closePreviewModal();
     } catch (err) {
         console.error('PDF export error:', err);
-        alert('حدث خطأ أثناء تصدير ملف PDF.');
+        // Fallback to Native Print PDF engine if canvas fails
+        executeNativePrintPDF();
     } finally {
         actionBtn.disabled = false;
         actionBtn.innerHTML = originalText;
@@ -274,7 +324,7 @@ async function executeImageExport() {
 
         const element = document.getElementById('pdfExportContainer') || document.getElementById('previewModalContent');
 
-        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 720 });
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 700 });
 
         const link = document.createElement('a');
         link.download = fileName;
@@ -299,7 +349,7 @@ function executeWordExport() {
     let htmlContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>${list.title}</title>
     <style>
-        body { font-family: Cairo, Arial, sans-serif; direction: rtl; }
+        body { font-family: Cairo, Tahoma, Arial, sans-serif; direction: rtl; }
         table { border-collapse: collapse; width: 100%; margin-top: 10px; margin-bottom: 15px; }
         th, td { border: 1px solid #333; padding: 6px 10px; text-align: right; font-size: 12px; white-space: normal !important; word-break: break-word !important; }
         th { background-color: #1e293b; color: #fff; }
@@ -350,7 +400,7 @@ async function executeTelegramPDFExport() {
             margin:       [6, 6, 6, 6],
             filename:     fileName,
             image:        { type: 'jpeg', quality: 0.92 },
-            html2canvas:  { scale: 1.4, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 720 },
+            html2canvas:  { scale: 1.4, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 700 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 

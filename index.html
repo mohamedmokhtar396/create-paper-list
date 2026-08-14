@@ -264,10 +264,13 @@
                     <input type="text" id="exportFileName" placeholder="اسم الملف قبل التحميل..." class="text-xs px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64">
                 </div>
 
-                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-                    <button onclick="closePreviewModal()" class="px-4 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-xl transition font-medium">إلغاء</button>
-                    <button id="previewModalActionBtn" class="px-5 py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-check"></i> تأكيد الأكشن
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                    <button onclick="closePreviewModal()" class="px-3 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-xl transition font-medium">إلغاء</button>
+                    <button onclick="executeNativePrintPDF()" class="px-4 py-2 text-xs bg-indigo-800 hover:bg-indigo-900 text-white rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm" title="طباعة أو حفظ PDF ممتاز بدون تداخل حروف">
+                        <i class="fa-solid fa-print"></i> طباعة / حفظ PDF ممتاز
+                    </button>
+                    <button id="previewModalActionBtn" class="px-5 py-2 text-xs bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-pdf"></i> تحميل PDF الأن
                     </button>
                 </div>
             </div>
