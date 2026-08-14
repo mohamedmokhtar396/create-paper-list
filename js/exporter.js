@@ -288,13 +288,7 @@ async function executePDFExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد والتحميل...';
 
-        const element = buildCleanExportHTML();
-        
-        // Append temporarily to DOM body for html2canvas measurement
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        element.style.top = '-9999px';
-        document.body.appendChild(element);
+        const element = document.getElementById('previewModalContent').firstElementChild;
 
         const opt = {
             margin:       [6, 6, 6, 6],
@@ -305,7 +299,6 @@ async function executePDFExport() {
         };
 
         await html2pdf().set(opt).from(element).save();
-        document.body.removeChild(element);
         closePreviewModal();
     } catch (err) {
         console.error('PDF export error:', err);
@@ -327,14 +320,9 @@ async function executeImageExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد...';
 
-        const element = buildCleanExportHTML();
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        element.style.top = '-9999px';
-        document.body.appendChild(element);
+        const element = document.getElementById('previewModalContent').firstElementChild;
 
         const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 750 });
-        document.body.removeChild(element);
 
         const link = document.createElement('a');
         link.download = fileName;
@@ -404,11 +392,7 @@ async function executeTelegramPDFExport() {
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التجهيز والرفع...';
 
         // 1. Optimized Fast PDF Blob Generation with Dynamic Auto Table Layout
-        const element = buildCleanExportHTML();
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        element.style.top = '-9999px';
-        document.body.appendChild(element);
+        const element = document.getElementById('previewModalContent').firstElementChild;
 
         const opt = {
             margin:       [6, 6, 6, 6],
@@ -420,7 +404,6 @@ async function executeTelegramPDFExport() {
 
         const pdfWorker = html2pdf().set(opt).from(element);
         const pdfBlob = await pdfWorker.output('blob');
-        document.body.removeChild(element);
 
         // 2. Prepare Telegram FormData payload
         const sumHeader = list.headers.find(h => h.role === 'sum');
