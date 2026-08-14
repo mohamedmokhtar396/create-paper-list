@@ -111,9 +111,9 @@ function updateListSubTitle() {
     }
 }
 
-// Custom Table Category Management (Add, Rename, Delete Table Categories)
+// Custom Table Category Management (Add, Rename, Delete)
 function addNewTableCategoryPrompt() {
-    const name = prompt('أدخل اسم الجدول الجديد (مثال: برستول كوشيه، ظهر كرافت، كرافت وش وظهر، هوالك...):');
+    const name = prompt('أدخل اسم الجدول التجميعي الجديد (مثال: برستول كوشيه، ظهر كرافت، كرافت سلوفان...):');
     if (!name || !name.trim()) return;
     const list = getActiveList();
     const newCat = {
@@ -122,13 +122,14 @@ function addNewTableCategoryPrompt() {
     };
     list.categories.push(newCat);
     renderApp();
+    return newCat.id;
 }
 
 function renameTableCategory(catId) {
     const list = getActiveList();
     const cat = list.categories.find(c => c.id === catId);
     if (!cat) return;
-    const newName = prompt('تعديل اسم الجدول:', cat.name);
+    const newName = prompt('تعديل اسم الجدول التجميعي:', cat.name);
     if (newName && newName.trim()) {
         cat.name = newName.trim();
         renderApp();
@@ -137,14 +138,14 @@ function renameTableCategory(catId) {
 
 function deleteTableCategory(catId) {
     const list = getActiveList();
-    if (!list.categories || list.categories.length <= 1) {
-        alert('يجب أن تحتوي القائمة على جدول مخصص واحد على الأقل.');
+    if (list.categories.length <= 1) {
+        alert('يجب أن تحتوي القائمة على جدول واحد على الأقل.');
         return;
     }
     const catToDelete = list.categories.find(c => c.id === catId);
     if (!catToDelete) return;
-
-    if (confirm(`هل أنت متاكد من حذف جدول "${catToDelete.name}"؟ سيتم إعادة توجيه أصنافه تلقائيًا إلى الجدول الأول.`)) {
+    
+    if (confirm(`هل أنت متأكد من حذف "${catToDelete.name}"؟ سيتم نقل أي أصناف تابعة له إلى الجدول الأول.`)) {
         list.categories = list.categories.filter(c => c.id !== catId);
         const fallbackCatId = list.categories[0].id;
         list.items.forEach(item => {
@@ -158,6 +159,20 @@ function deleteTableCategory(catId) {
 }
 
 function updateItemCategory(itemId, categoryId) {
+    if (categoryId === 'action_add_new') {
+        const newCatId = addNewTableCategoryPrompt();
+        if (newCatId) {
+            const list = getActiveList();
+            const item = list.items.find(i => i.id === itemId);
+            if (item) {
+                item.categoryId = newCatId;
+                item.isSpecial = (newCatId === 'cat_special');
+                renderApp();
+            }
+        }
+        return;
+    }
+
     const list = getActiveList();
     const item = list.items.find(i => i.id === itemId);
     if (item) {

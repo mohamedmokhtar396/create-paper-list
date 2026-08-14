@@ -27,70 +27,82 @@ function renderListTabs() {
     });
 }
 
-// Render Dynamic Header Control Pills & Table Category Pills (With Add, Rename & Delete buttons)
+// Render Dynamic Header & Table Categories Control Panel
 function renderHeadersControl() {
     const list = getActiveList();
     const container = document.getElementById('headersContainer');
     if (!container) return;
     container.innerHTML = '';
 
-    // 1. Table Categories Management Section
-    const catSection = document.createElement('div');
-    catSection.className = "w-full border-b border-slate-200 pb-2.5 mb-2.5 flex flex-wrap items-center gap-2";
-    catSection.innerHTML = `<span class="text-xs font-bold text-slate-700 flex items-center gap-1 pl-1"><i class="fa-solid fa-folder-open text-indigo-600"></i> الجداول التجميعية:</span>`;
+    const categories = list.categories || defaultCategories;
 
-    (list.categories || defaultCategories).forEach(cat => {
-        const catPill = document.createElement('div');
+    // Outer Wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = "flex flex-col gap-3 w-full";
+
+    // Row 1: Categories Controls
+    let catHTML = `
+        <div class="flex flex-wrap items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5 whitespace-nowrap pl-2 border-l border-slate-300">
+                <i class="fa-solid fa-table-cells text-indigo-600"></i> الجداول التجميعية:
+            </span>
+    `;
+
+    categories.forEach(cat => {
         const isSpecial = cat.id === 'cat_special';
-        catPill.className = `flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition ${
-            isSpecial ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-indigo-50 text-indigo-900 border-indigo-200'
-        }`;
-        
-        catPill.innerHTML = `
-            <span>${cat.name}</span>
-            <i class="fa-solid fa-pen text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer px-0.5" onclick="renameTableCategory('${cat.id}')" title="تعديل اسم هذا الجدول"></i>
-            ${list.categories.length > 1 ? `<i class="fa-solid fa-trash-can text-[10px] text-slate-400 hover:text-rose-600 cursor-pointer px-0.5" onclick="deleteTableCategory('${cat.id}')" title="حذف هذا الجدول"></i>` : ''}
+        const badgeBg = isSpecial ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-indigo-50 text-indigo-900 border-indigo-200';
+        catHTML += `
+            <div class="flex items-center gap-1.5 ${badgeBg} border px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs">
+                <span>${cat.name}</span>
+                <i class="fa-solid fa-pen text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer px-0.5" onclick="renameTableCategory('${cat.id}')" title="تعديل اسم هذا الجدول"></i>
+                ${categories.length > 1 ? `<i class="fa-solid fa-trash-can text-[10px] text-slate-400 hover:text-rose-600 cursor-pointer px-0.5" onclick="deleteTableCategory('${cat.id}')" title="حذف هذا الجدول"></i>` : ''}
+            </div>
         `;
-        catSection.appendChild(catPill);
     });
 
-    const addCatBtn = document.createElement('button');
-    addCatBtn.onclick = addNewTableCategoryPrompt;
-    addCatBtn.className = "bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 shadow-sm";
-    addCatBtn.innerHTML = `<i class="fa-solid fa-plus"></i> إضافة جدول جديد`;
-    catSection.appendChild(addCatBtn);
+    catHTML += `
+        <button onclick="addNewTableCategoryPrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 shadow-xs">
+            <i class="fa-solid fa-plus"></i> إضافة جدول جديد
+        </button>
+    </div>`;
 
-    container.appendChild(catSection);
-
-    // 2. Data Headers Section
-    const headersSection = document.createElement('div');
-    headersSection.className = "w-full flex flex-wrap items-center gap-2";
-    headersSection.innerHTML = `<span class="text-xs font-bold text-slate-700 flex items-center gap-1 pl-1"><i class="fa-solid fa-sliders text-indigo-600"></i> أعمدة البيانات:</span>`;
+    // Row 2: Headers / Columns Controls
+    let headerHTML = `
+        <div class="flex flex-wrap items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5 whitespace-nowrap pl-2 border-l border-slate-300">
+                <i class="fa-solid fa-columns text-indigo-600"></i> أعمدة البيانات:
+            </span>
+    `;
 
     list.headers.forEach(h => {
-        const pill = document.createElement('div');
-        pill.className = "flex items-center gap-1.5 bg-slate-100 border border-slate-300 text-slate-700 px-2.5 py-1 rounded-lg text-xs";
-        
         let roleColor = 'bg-slate-200 text-slate-700';
         let roleLabel = 'معلومات';
         if (h.role === 'group') { roleColor = 'bg-indigo-100 text-indigo-800'; roleLabel = 'دمج وتطابق'; }
         if (h.role === 'sum') { roleColor = 'bg-emerald-100 text-emerald-800'; roleLabel = 'جمع أرقام'; }
 
-        pill.innerHTML = `
-            <span class="font-bold cursor-pointer hover:text-indigo-600" onclick="renameHeader('${h.id}')" title="انقر لتغيير اسم العمود">${h.name}</span>
-            <button onclick="cycleHeaderRole('${h.id}')" class="text-[9px] font-semibold px-1.5 py-0.5 rounded ${roleColor}" title="انقر لتغيير نوع العمود">
-                ${roleLabel}
-            </button>
-            <i class="fa-solid fa-pen text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer px-0.5" onclick="renameHeader('${h.id}')" title="تعديل اسم العمود"></i>
-            ${list.headers.length > 1 ? `<i class="fa-solid fa-trash-can text-[10px] text-slate-400 hover:text-rose-600 cursor-pointer px-0.5" onclick="deleteHeader('${h.id}')"></i>` : ''}
+        headerHTML += `
+            <div class="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-700 px-2 py-1 rounded-lg text-xs font-semibold shadow-xs">
+                <span class="font-bold cursor-pointer hover:text-indigo-600" onclick="renameHeader('${h.id}')" title="انقر لتغيير اسم العمود">${h.name}</span>
+                <button onclick="cycleHeaderRole('${h.id}')" class="text-[9px] font-semibold px-1.5 py-0.5 rounded ${roleColor}" title="انقر لتغيير نوع العمود">
+                    ${roleLabel}
+                </button>
+                <i class="fa-solid fa-pen text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer px-0.5" onclick="renameHeader('${h.id}')" title="تعديل اسم العمود"></i>
+                ${list.headers.length > 1 ? `<i class="fa-solid fa-trash-can text-[10px] text-slate-400 hover:text-rose-600 cursor-pointer px-0.5" onclick="deleteHeader('${h.id}')"></i>` : ''}
+            </div>
         `;
-        headersSection.appendChild(pill);
     });
 
-    container.appendChild(headersSection);
+    headerHTML += `
+        <button onclick="addNewHeaderPrompt()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1">
+            <i class="fa-solid fa-plus"></i> إضافة عمود جديد
+        </button>
+    </div>`;
+
+    wrapper.innerHTML = catHTML + headerHTML;
+    container.appendChild(wrapper);
 }
 
-// Render Raw Input Table (Left Panel) with Category Dropdown, Editable Code & Drag-and-Drop
+// Render Raw Input Table (Left Panel) with Category Dropdown, Editable Code, Dynamic Textarea & Drag-and-Drop
 function renderRawTable() {
     const list = getActiveList();
     const thead = document.getElementById('rawTableHeader');
@@ -101,12 +113,13 @@ function renderRawTable() {
 
     // Header HTML with Reorder, Category Select & Editable Code
     let thHTML = '<th class="p-2 border border-slate-200 text-center w-10" title="ترتيب وتحريك الأسطر يدوياً"><i class="fa-solid fa-up-down text-indigo-600"></i></th>';
-    thHTML += '<th class="p-2 border border-slate-200 text-center w-28" title="تحديد الجدول أو تصنيف الصنف">الجدول / التصنيف</th>';
+    thHTML += '<th class="p-2 border border-slate-200 text-center w-36" title="تحديد الجدول التجميعي للصنف">الجدول / التصنيف</th>';
     thHTML += '<th class="p-2 border border-slate-200 text-center w-16" title="كود الصنف (قابل للتعديل يدويًا)">الكود #</th>';
     list.headers.forEach(h => {
         const suffix = getUnitSuffix(h.name);
         const suffixBadge = suffix ? `<span class="text-[10px] text-indigo-500 font-normal ml-1">(${suffix})</span>` : '';
-        thHTML += `<th class="p-2 border border-slate-200">${h.name}${suffixBadge}</th>`;
+        const minW = (h.name.includes('النوع') || h.role === 'group') ? 'min-w-[150px]' : '';
+        thHTML += `<th class="p-2 border border-slate-200 ${minW}">${h.name}${suffixBadge}</th>`;
     });
     thHTML += '<th class="p-2 border border-slate-200 text-center w-10"><i class="fa-solid fa-gear"></i></th>';
     thead.innerHTML = thHTML;
@@ -140,16 +153,17 @@ function renderRawTable() {
             </td>
         `;
 
-        // Category Selector Dropdown
+        // Category Selector Dropdown (with option to add new category)
         let catOptions = '';
         categories.forEach(cat => {
             const selected = item.categoryId === cat.id ? 'selected' : '';
             catOptions += `<option value="${cat.id}" ${selected}>${cat.name}</option>`;
         });
+        catOptions += `<option value="action_add_new" class="font-bold text-indigo-600 bg-indigo-50">+ إضافة جدول جديد...</option>`;
 
         tdHTML += `
             <td class="p-1 border border-slate-200 text-center">
-                <select onchange="updateItemCategory('${item.id}', this.value)" class="w-full text-[11px] p-1 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-indigo-500 font-semibold ${isSpecial ? 'text-amber-800 font-bold' : 'text-slate-700'}">
+                <select onchange="updateItemCategory('${item.id}', this.value)" class="w-full text-[11px] p-1.5 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-indigo-500 font-bold ${isSpecial ? 'text-amber-800' : 'text-indigo-900'}">
                     ${catOptions}
                 </select>
             </td>
@@ -170,14 +184,30 @@ function renderRawTable() {
         list.headers.forEach(h => {
             const val = item[h.id] !== undefined ? toEnglishDigits(item[h.id]) : '';
             const isNum = h.role === 'sum';
-            tdHTML += `
-                <td class="p-1 border border-slate-200">
-                    <input type="${isNum ? 'number' : 'text'}" value="${val}" 
-                        onchange="updateItemValue('${item.id}', '${h.id}', this.value)"
-                        placeholder="${isNum ? '0' : ''}"
-                        class="w-full p-1 text-xs bg-transparent border border-transparent focus:border-indigo-400 focus:bg-white rounded outline-none transition">
-                </td>
-            `;
+
+            if (isNum) {
+                tdHTML += `
+                    <td class="p-1 border border-slate-200">
+                        <input type="number" value="${val}" 
+                            onchange="updateItemValue('${item.id}', '${h.id}', this.value)"
+                            placeholder="0"
+                            class="w-full p-1 text-xs bg-transparent border border-transparent focus:border-indigo-400 focus:bg-white rounded outline-none transition font-semibold">
+                    </td>
+                `;
+            } else {
+                // Dynamic Auto-Resizing Textarea for "النوع" & Text columns
+                tdHTML += `
+                    <td class="p-1 border border-slate-200 min-w-[140px]">
+                        <textarea rows="1"
+                            oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';updateItemValue('${item.id}', '${h.id}', this.value)"
+                            onchange="updateItemValue('${item.id}', '${h.id}', this.value)"
+                            placeholder=""
+                            title="انقر للكتابة - يتوسع تلقائيًا لظهور كامل الكلمات"
+                            class="w-full p-1 text-xs bg-transparent border border-transparent focus:border-indigo-400 focus:bg-white rounded outline-none transition resize-none overflow-hidden leading-relaxed font-semibold custom-scroll"
+                            style="min-height: 28px; height: auto;">${val}</textarea>
+                    </td>
+                `;
+            }
         });
         tdHTML += `
             <td class="p-1 border border-slate-200 text-center">
@@ -186,6 +216,15 @@ function renderRawTable() {
         `;
         tr.innerHTML = tdHTML;
         tbody.appendChild(tr);
+
+        // Trigger height recalculation on textareas after render
+        setTimeout(() => {
+            const textareas = tr.querySelectorAll('textarea');
+            textareas.forEach(ta => {
+                ta.style.height = 'auto';
+                ta.style.height = ta.scrollHeight + 'px';
+            });
+        }, 10);
     });
 }
 
@@ -214,7 +253,7 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpec
             if (h.role === 'group') {
                 const val = row.groupValues[h.id] || '';
                 const formatted = formatCellValueWithUnit(val, h.name, false);
-                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold whitespace-normal break-words leading-relaxed">${formatted}</td>`;
+                rowsHTML += `<td class="p-1.5 border border-slate-200 font-semibold whitespace-normal break-words leading-relaxed text-slate-800">${formatted}</td>`;
             } else if (h.role === 'sum') {
                 const val = row.sumValues[h.id] || 0;
                 totals[h.id] += val;
@@ -280,7 +319,7 @@ function renderAggregatedTable() {
                         <i class="fa-solid ${isSpecial ? 'fa-square-check text-amber-600' : 'fa-table text-indigo-600'}"></i>
                         <span>${catGroup.name}</span>
                         <i class="fa-solid fa-pen text-[9px] text-slate-400 hover:text-indigo-600 cursor-pointer" onclick="renameTableCategory('${catGroup.id}')" title="تعديل اسم هذا الجدول"></i>
-                        ${list.categories.length > 1 ? `<i class="fa-solid fa-trash-can text-[9px] text-slate-400 hover:text-rose-600 cursor-pointer" onclick="deleteTableCategory('${catGroup.id}')" title="حذف هذا الجدول"></i>` : ''}
+                        ${resultCategories.length > 1 ? `<i class="fa-solid fa-trash-can text-[9px] text-slate-400 hover:text-rose-600 cursor-pointer" onclick="deleteTableCategory('${catGroup.id}')" title="حذف هذا الجدول"></i>` : ''}
                     </h5>
                     <span class="text-[10px] font-bold ${isSpecial ? 'bg-amber-200 text-amber-900' : 'bg-indigo-100 text-indigo-800'} px-2 py-0.5 rounded-full">
                         إجمالي الجدول: ${sumHeader ? formatCellValueWithUnit(catGroup.totalWeight, sumHeader.name, true) : formatEnglishNumber(catGroup.totalWeight)}
