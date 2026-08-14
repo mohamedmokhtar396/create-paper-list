@@ -295,7 +295,7 @@ async function generateExportCanvasData(type = 'jpeg', scale = 2) {
     iframe.style.position = 'fixed';
     iframe.style.top = '0';
     iframe.style.left = '0';
-    iframe.style.width = '794px'; 
+    iframe.style.width = '850px'; 
     iframe.style.height = '1123px'; 
     iframe.style.zIndex = '-9999';
     iframe.style.visibility = 'hidden'; 
@@ -310,7 +310,7 @@ async function generateExportCanvasData(type = 'jpeg', scale = 2) {
         <head>
             <meta charset="UTF-8">
             <style>
-                body { font-family: Tahoma, Arial, sans-serif; direction: rtl; margin: 0; padding: 20px; background: #ffffff; color: #1e293b; }
+                body { font-family: Tahoma, Arial, sans-serif; direction: rtl; margin: 0; padding: 0; background: #ffffff; color: #1e293b; }
                 table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: auto; }
                 th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-size: 11px; }
                 th { background-color: #1e293b !important; color: #ffffff !important; font-weight: 700; }
@@ -318,7 +318,7 @@ async function generateExportCanvasData(type = 'jpeg', scale = 2) {
             </style>
         </head>
         <body>
-            <div id="captureArea" style="width: 794px; background: #ffffff; margin: 0 auto;">
+            <div id="captureArea" style="width: 794px; background: #ffffff; margin: 0; padding: 20px; box-sizing: border-box;">
                 ${cleanElement.innerHTML}
             </div>
         </body>
