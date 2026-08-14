@@ -297,7 +297,7 @@ async function executePDFExport() {
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التوليد والتحميل...';
 
         const element = buildCleanExportHTML();
-        // Append behind everything at top-left to avoid viewport cropping
+        // Append to body with absolute positioning outside normal flow to allow painting
         element.style.position = 'absolute';
         element.style.top = '0';
         element.style.left = '0';
@@ -305,16 +305,43 @@ async function executePDFExport() {
         element.style.width = '794px';
         document.body.appendChild(element);
 
-        const opt = {
-            margin:       [6, 6, 6, 6],
-            filename:     fileName,
-            image:        { type: 'jpeg', quality: 1.0 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 800 },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
+        // Wait for browser to layout and paint the element
+        await new Promise(r => setTimeout(r, 400));
 
-        await html2pdf().set(opt).from(element).save();
+        // Use htmlToImage for perfect RTL Arabic rendering
+        const dataUrl = await htmlToImage.toJpeg(element, { 
+            quality: 1.0, 
+            backgroundColor: '#ffffff',
+            pixelRatio: 2 // High resolution
+        });
+        
+        const elRect = element.getBoundingClientRect();
         document.body.removeChild(element);
+
+        // Convert to PDF pages using jsPDF
+        const jsPDF = window.jspdf.jsPDF;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
+        const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+        
+        const ratio = pdfWidth / elRect.width;
+        const finalHeight = elRect.height * ratio; // total height in mm
+        
+        let heightLeft = finalHeight;
+        let position = 0;
+
+        pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, finalHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 0) {
+            position -= pdfHeight;
+            pdf.addPage();
+            pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, finalHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        pdf.save(fileName);
         closePreviewModal();
     } catch (err) {
         console.error('PDF export error:', err);
@@ -344,12 +371,18 @@ async function executeImageExport() {
         element.style.width = '794px';
         document.body.appendChild(element);
 
-        const canvas = await html2canvas(element, { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 850 });
+        await new Promise(r => setTimeout(r, 400));
+
+        const dataUrl = await htmlToImage.toPng(element, { 
+            backgroundColor: '#ffffff',
+            pixelRatio: 2
+        });
+        
         document.body.removeChild(element);
 
         const link = document.createElement('a');
         link.download = fileName;
-        link.href = canvas.toDataURL("image/png");
+        link.href = dataUrl;
         link.click();
         closePreviewModal();
     } catch (err) {
@@ -414,7 +447,7 @@ async function executeTelegramPDFExport() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التجهيز والرفع...';
 
-        // 1. Optimized Fast PDF Blob Generation with Dynamic Auto Table Layout
+        // 1. Optimized Fast PDF Blob Generation with html-to-image
         const element = buildCleanExportHTML();
         element.style.position = 'absolute';
         element.style.top = '0';
@@ -423,17 +456,39 @@ async function executeTelegramPDFExport() {
         element.style.width = '794px';
         document.body.appendChild(element);
 
-        const opt = {
-            margin:       [6, 6, 6, 6],
-            filename:     fileName,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 800 },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
+        await new Promise(r => setTimeout(r, 400));
 
-        const pdfWorker = html2pdf().set(opt).from(element);
-        const pdfBlob = await pdfWorker.output('blob');
+        const dataUrl = await htmlToImage.toJpeg(element, { 
+            quality: 0.95, 
+            backgroundColor: '#ffffff',
+            pixelRatio: 1.5
+        });
+        
+        const elRect = element.getBoundingClientRect();
         document.body.removeChild(element);
+
+        const jsPDF = window.jspdf.jsPDF;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const ratio = pdfWidth / elRect.width;
+        const finalHeight = elRect.height * ratio;
+        
+        let heightLeft = finalHeight;
+        let position = 0;
+
+        pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, finalHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 0) {
+            position -= pdfHeight;
+            pdf.addPage();
+            pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, finalHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        const pdfBlob = pdf.output('blob');
 
         // 2. Prepare Telegram FormData payload
         const sumHeader = list.headers.find(h => h.role === 'sum');
