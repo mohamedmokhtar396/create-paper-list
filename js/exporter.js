@@ -178,8 +178,9 @@ function buildCleanExportHTML() {
             html += `<tr><td colspan="${list.headers.length + 2}" style="border: 1px solid #cbd5e1; text-align: center; color: #94a3b8; padding: 12px; font-size: 10px;">لا توجد بيانات.</td></tr>`;
         } else {
             catGroup.aggregated.forEach((row, idx) => {
+                const mergedCodesStr = row.itemCodes ? row.itemCodes.filter(Boolean).join(' و ') : formatEnglishNumber(idx + 1, false);
                 html += `<tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : (isSpecial ? '#fffbeb' : '#f8fafc')};">`;
-                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #475569; font-size: 11px; white-space: nowrap;">${formatEnglishNumber(idx + 1, false)}</td>`;
+                html += `<td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-weight: bold; color: #475569; font-size: 11px; white-space: normal; word-break: break-word;">${mergedCodesStr}</td>`;
                 
                 list.headers.forEach(h => {
                     const isNum = h.role === 'sum' || h.name.includes('الجرام') || h.name.includes('المقاس') || h.name.includes('الوزن');

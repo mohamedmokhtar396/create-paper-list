@@ -82,7 +82,7 @@ function createNewList() {
         title: name.trim(),
         subTitle: 'تقرير الأصناف واللوائح المدمجة',
         createdAt: new Date().toLocaleDateString('en-GB'),
-        categories: JSON.parse(JSON.stringify(currentList.categories)),
+        categories: JSON.parse(JSON.stringify(defaultCategories)),
         headers: JSON.parse(JSON.stringify(currentList.headers)),
         items: []
     };
@@ -447,7 +447,8 @@ function aggregateItemArray(items, headers) {
                 count: 1,
                 groupValues: {},
                 sumValues: {},
-                infoValues: {}
+                infoValues: {},
+                itemCodes: [(item.itemCode || item.serialNo || '').toString()]
             };
             groupHeaders.forEach(h => aggregatedObj.groupValues[h.id] = toEnglishDigits(item[h.id] || ''));
             sumHeaders.forEach(h => aggregatedObj.sumValues[h.id] = parseFloat(toEnglishDigits(item[h.id])) || 0);
@@ -459,6 +460,7 @@ function aggregateItemArray(items, headers) {
         } else {
             const existing = map.get(groupKey);
             existing.count += 1;
+            existing.itemCodes.push((item.itemCode || item.serialNo || '').toString());
             sumHeaders.forEach(h => {
                 const prevSum = existing.sumValues[h.id] || 0;
                 existing.sumValues[h.id] = prevSum + (parseFloat(toEnglishDigits(item[h.id])) || 0);
