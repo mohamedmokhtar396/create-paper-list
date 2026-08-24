@@ -96,7 +96,8 @@ const slitter = {
             if (numericWidth > 0) {
                 const opt = document.createElement('option');
                 opt.value = numericWidth;
-                opt.textContent = `${typeStr} - مقاس: ${numericWidth} سم (الكمية: ${group.count})`;
+                let codesStr = group.originalSerials ? group.originalSerials.join(' , ') : '-';
+                opt.textContent = `[أكواد: ${codesStr}] ${typeStr} - مقاس: ${numericWidth} سم (الكمية: ${group.count})`;
                 select.appendChild(opt);
             }
         });
@@ -221,6 +222,7 @@ const slitter = {
                 
                 suitableRolls.push({
                     count: group.count,
+                    codes: group.originalSerials ? group.originalSerials.join(' , ') : '-',
                     width: numericWidth,
                     type: typeStr,
                     waste: wasteProduced
@@ -251,7 +253,7 @@ const slitter = {
                     <table class="w-full text-xs text-right border-collapse">
                         <thead>
                             <tr class="bg-emerald-50 text-emerald-800 border-b border-emerald-200">
-                                <th class="p-2 border border-slate-200">الكمية المتاحة</th>
+                                <th class="p-2 border border-slate-200">أكواد البكرات</th>
                                 <th class="p-2 border border-slate-200">النوع</th>
                                 <th class="p-2 border border-slate-200">مقاس البكرة</th>
                                 <th class="p-2 border border-slate-200">الباقي (الهادر الفعلي)</th>
@@ -265,7 +267,10 @@ const slitter = {
             const isBest = idx === 0;
             html += `
                 <tr class="${isBest ? 'bg-emerald-100/50 font-bold' : 'bg-white'}">
-                    <td class="p-2 border border-slate-200 text-indigo-700">${match.count} بكرة</td>
+                    <td class="p-2 border border-slate-200 text-indigo-700 text-xs">
+                        <span class="font-bold">أكواد: [${match.codes}]</span> <br>
+                        <span class="text-[10px] text-slate-500">(الكمية المتاحة: ${match.count})</span>
+                    </td>
                     <td class="p-2 border border-slate-200">${match.type}</td>
                     <td class="p-2 border border-slate-200">${match.width} سم</td>
                     <td class="p-2 border border-slate-200 text-rose-600">${match.waste.toFixed(2)} سم</td>
