@@ -253,8 +253,18 @@
                     </div>
 
                     <div class="flex flex-col gap-2">
-                        <label class="text-xs font-bold text-slate-600">البكرة المراد قصها:</label>
-                        <select id="slitRollSelect" onchange="slitter.onRollChange()" class="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold text-slate-700"></select>
+                        <label class="text-xs font-bold text-slate-600">البكرات المراد قصها (متعدد الاختيار):</label>
+                        <div class="relative" id="customDropdownContainer">
+                            <div onclick="slitter.toggleRollDropdown()" class="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold text-slate-700 cursor-pointer flex justify-between items-center min-h-[40px]">
+                                <span id="slitRollSelectText" class="truncate">-- اختر بكرة من القائمة --</span>
+                                <i class="fa-solid fa-chevron-down text-slate-400"></i>
+                            </div>
+                            <div id="slitRollDropdown" class="absolute right-0 left-0 w-full mt-1 bg-white border border-indigo-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto hidden custom-scroll">
+                                <div id="slitRollOptions" class="flex flex-col p-2 gap-1">
+                                    <!-- Checkboxes will be injected here -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="flex items-center gap-4 my-2">

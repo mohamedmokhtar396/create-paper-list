@@ -41,6 +41,17 @@ const slitter = {
         this.populateListSelect();
         this.populateRollSelect();
         this.calculateSlit();
+        
+        if (!this.clickListenerAdded) {
+            document.addEventListener('click', (e) => {
+                const container = document.getElementById('customDropdownContainer');
+                const dropdown = document.getElementById('slitRollDropdown');
+                if (container && dropdown && !container.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+            this.clickListenerAdded = true;
+        }
     },
 
     populateListSelect() {
@@ -73,43 +84,69 @@ const slitter = {
         this.searchRollForTargets();
     },
 
+    toggleRollDropdown() {
+        const dropdown = document.getElementById('slitRollDropdown');
+        if (dropdown) dropdown.classList.toggle('hidden');
+    },
+
     populateRollSelect() {
-        const select = document.getElementById('slitRollSelect');
-        if (!select) return;
-        select.innerHTML = '<option value="">-- اختر بكرة من القائمة --</option>';
+        const container = document.getElementById('slitRollOptions');
+        if (!container) return;
+        container.innerHTML = '';
+        const textSpan = document.getElementById('slitRollSelectText');
+        if (textSpan) textSpan.textContent = '-- اختر بكرات من القائمة --';
         
         const list = appData.lists.find(l => l.id === this.currentListId);
         if (!list || !list.items || list.items.length === 0) return;
 
-        // Use the same aggregation logic as the main inventory
         const aggregatedList = aggregateItemArray(list.items, list.headers);
         const sizeHeader = list.headers.find(h => h.name.includes('مقاس') || h.name.includes('عرض') || h.name.includes('Size'));
         const typeHeader = list.headers.find(h => h.name.includes('نوع') || h.name.includes('Type'));
 
         aggregatedList.forEach(group => {
-            // Because group.groupValues might contain the size and type, let's extract them
             let widthStr = sizeHeader ? (group.groupValues[sizeHeader.id] || group.infoValues[sizeHeader.id]?.[0] || '0') : '0';
             let typeStr = typeHeader ? (group.groupValues[typeHeader.id] || group.infoValues[typeHeader.id]?.[0] || 'بكرة عامة') : 'بكرة عامة';
             
             let numericWidth = parseFloat(toEnglishDigits(widthStr.toString()));
             
             if (numericWidth > 0) {
-                const opt = document.createElement('option');
-                opt.value = numericWidth;
                 let codesStr = group.originalSerials ? group.originalSerials.join(' , ') : '-';
-                opt.textContent = `[أكواد: ${codesStr}] ${typeStr} - مقاس: ${numericWidth} سم (الكمية: ${group.count})`;
-                select.appendChild(opt);
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-3 p-2 hover:bg-indigo-50 rounded cursor-pointer transition border-b border-slate-100 last:border-0';
+                label.innerHTML = `
+                    <input type="checkbox" value="${numericWidth}" onchange="slitter.onRollChange()" class="slit-roll-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
+                    <span class="text-xs text-slate-700 leading-relaxed">
+                        <span class="font-bold text-indigo-700">${typeStr}</span> - مقاس: <span class="text-rose-600 font-bold">${numericWidth} سم</span><br>
+                        <span class="text-[10px] text-slate-500">[أكواد: ${codesStr}] (الكمية: ${group.count})</span>
+                    </span>
+                `;
+                container.appendChild(label);
             }
         });
     },
 
     onRollChange() {
         document.getElementById('slitManualRoll').value = '';
+        
+        const checkboxes = document.querySelectorAll('.slit-roll-checkbox:checked');
+        const textSpan = document.getElementById('slitRollSelectText');
+        
+        if (checkboxes.length === 0) {
+            textSpan.textContent = '-- اختر بكرات من القائمة --';
+        } else if (checkboxes.length === 1) {
+            textSpan.textContent = `بكرة واحدة (${checkboxes[0].value} سم)`;
+        } else {
+            textSpan.textContent = `تم تحديد (${checkboxes.length}) بكرات مختلفة`;
+        }
+        
         this.calculateSlit();
     },
 
     onManualRollInput() {
-        document.getElementById('slitRollSelect').value = '';
+        const checkboxes = document.querySelectorAll('.slit-roll-checkbox:checked');
+        checkboxes.forEach(cb => cb.checked = false);
+        document.getElementById('slitRollSelectText').textContent = '-- اختر بكرات من القائمة --';
+        
         this.calculateSlit();
     },
 
@@ -127,150 +164,161 @@ const slitter = {
         this.calculateSlit();
     },
 
-    getRollWidth() {
+    getRollWidths() {
         const manual = document.getElementById('slitManualRoll').value;
-        if (manual && !isNaN(parseFloat(manual))) return parseFloat(manual);
-        const selected = document.getElementById('slitRollSelect').value;
-        if (selected && !isNaN(parseFloat(selected))) return parseFloat(selected);
-        return 0;
+        if (manual && !isNaN(parseFloat(manual))) {
+            return [parseFloat(manual)];
+        }
+        
+        const checkboxes = document.querySelectorAll('.slit-roll-checkbox:checked');
+        let widths = [];
+        checkboxes.forEach(cb => {
+            widths.push(parseFloat(cb.value));
+        });
+        return widths;
     },
 
     calculateSlit() {
         const container = document.getElementById('slittingResultContainer');
-        const rollWidth = this.getRollWidth();
+        const rollWidths = this.getRollWidths();
         const mode = document.getElementById('slitMode').value;
         let wastePerCut = parseFloat(document.getElementById('slitWaste').value) || 0;
 
-        if (rollWidth <= 0) {
-            container.innerHTML = '<p class="text-indigo-300 text-sm">قم بتحديد بكرة من القائمة أو إدخال مقاس لعرض النتيجة...</p>';
+        if (rollWidths.length === 0) {
+            container.innerHTML = '<p class="text-indigo-300 text-sm">قم بتحديد بكرة (أو بكرات) من القائمة أو إدخال مقاس لعرض النتيجة...</p>';
             return;
         }
 
-        let html = '';
+        // Shared input validation before looping
+        let parts = 2;
+        let targetSizes = [];
+        let requiredUsableWidth = 0;
 
         if (mode === 'equal') {
-            let parts = parseInt(document.getElementById('slitParts').value) || 2;
+            parts = parseInt(document.getElementById('slitParts').value) || 2;
             if (parts < 1) parts = 1;
-
-            const cuts = parts - 1;
-            const totalWaste = cuts * wastePerCut;
-            const usableWidth = rollWidth - totalWaste;
-            
-            if (usableWidth <= 0) {
-                container.innerHTML = `<p class="text-rose-400 font-bold text-sm"><i class="fa-solid fa-triangle-exclamation"></i> الهادر الإجمالي أكبر من أو يساوي عرض البكرة!</p>`;
-                return;
-            }
-
-            const sizePerPart = (usableWidth / parts).toFixed(2);
-            
-            html = `
-                <div class="flex flex-col gap-4 w-full text-white">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="bg-indigo-800/50 p-3 rounded-lg border border-indigo-500/30">
-                            <span class="block text-indigo-300 text-xs mb-1">عرض البكرة الأصلي</span>
-                            <span class="font-bold text-xl">${rollWidth} <small class="text-sm">سم</small></span>
-                        </div>
-                        <div class="bg-rose-900/30 p-3 rounded-lg border border-rose-500/30">
-                            <span class="block text-rose-300 text-xs mb-1">إجمالي الهادر (${cuts} نشرة)</span>
-                            <span class="font-bold text-xl text-rose-400">${totalWaste} <small class="text-sm">سم</small></span>
-                        </div>
-                        <div class="bg-emerald-900/40 p-3 rounded-lg border border-emerald-500/30">
-                            <span class="block text-emerald-300 text-xs mb-1">مقاس كل جزء (عدد ${parts})</span>
-                            <span class="font-bold text-2xl text-emerald-400">${sizePerPart} <small class="text-sm">سم</small></span>
-                        </div>
-                    </div>
-
-                    <div class="mt-2 text-center bg-black/20 rounded-lg p-3">
-                        <p class="text-sm text-indigo-200">
-                            <i class="fa-solid fa-check-circle text-emerald-400 ml-1"></i>
-                            المعادلة: (${rollWidth} سم - ${totalWaste} سم هادر كلي) ÷ ${parts} أجزاء = ${sizePerPart} سم لكل جزء.
-                        </p>
-                    </div>
-                </div>
-            `;
         } else {
-            // Custom mode
             const targetStr = document.getElementById('slitCustomTargets').value;
             if (!targetStr.trim()) {
                 container.innerHTML = '<p class="text-indigo-300 text-sm">أدخل المقاسات المطلوبة للحساب...</p>';
                 return;
             }
-
-            const targetSizes = targetStr.split(/[,،]+/).map(s => parseFloat(toEnglishDigits(s.trim()))).filter(n => !isNaN(n) && n > 0);
-            
+            targetSizes = targetStr.split(/[,،]+/).map(s => parseFloat(toEnglishDigits(s.trim()))).filter(n => !isNaN(n) && n > 0);
             if (targetSizes.length === 0) {
                 container.innerHTML = '<p class="text-rose-400 font-bold text-sm">يرجى إدخال مقاسات صحيحة (مثال: 86, 72)</p>';
                 return;
             }
-
-            let requiredUsableWidth = targetSizes.reduce((a, b) => a + b, 0);
-            
-            // Smart cuts calculation
-            // By default, every requested piece requires 1 cut to separate it from the mother roll (or remainder).
-            let cuts = targetSizes.length;
-            
-            // Exception 1: If the user wants 1 piece and it's exactly the roll size, 0 cuts.
-            if (targetSizes.length === 1 && requiredUsableWidth === rollWidth) {
-                cuts = 0;
-            }
-            
-            let totalWaste = cuts * wastePerCut;
-            
-            // Exception 2: If calculating a cut for every piece exceeds the roll width,
-            // check if we can fit them by skipping the final trim cut (letting the last piece hit the edge).
-            if (requiredUsableWidth + totalWaste > rollWidth) {
-                if (cuts > 0 && requiredUsableWidth + (cuts - 1) * wastePerCut <= rollWidth) {
-                    cuts = cuts - 1;
-                    totalWaste = cuts * wastePerCut;
-                }
-            }
-
-            const totalRequiredWidth = requiredUsableWidth + totalWaste;
-            const remainder = rollWidth - totalRequiredWidth;
-
-            if (remainder < 0) {
-                html = `
-                    <div class="flex flex-col gap-3 w-full text-center">
-                        <p class="text-rose-400 font-bold text-lg"><i class="fa-solid fa-triangle-exclamation"></i> البكرة صغيرة جداً ولا تكفي!</p>
-                        <p class="text-indigo-200 text-sm">عرض البكرة: ${rollWidth} سم</p>
-                        <p class="text-indigo-200 text-sm">المطلوب الكلي (بما فيه ${totalWaste} سم هادر): ${totalRequiredWidth} سم</p>
-                        <p class="text-rose-300 text-sm font-bold mt-2">عجز بمقدار: ${Math.abs(remainder).toFixed(2)} سم</p>
-                    </div>
-                `;
-            } else {
-                html = `
-                    <div class="flex flex-col gap-4 w-full text-white">
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <div class="bg-indigo-800/50 p-2 rounded-lg border border-indigo-500/30">
-                                <span class="block text-indigo-300 text-xs mb-1">عرض البكرة</span>
-                                <span class="font-bold text-lg">${rollWidth}</span>
-                            </div>
-                            <div class="bg-indigo-800/50 p-2 rounded-lg border border-indigo-500/30">
-                                <span class="block text-indigo-300 text-xs mb-1">المقاسات</span>
-                                <span class="font-bold text-lg" dir="ltr">${targetSizes.join(' + ')}</span>
-                            </div>
-                            <div class="bg-rose-900/30 p-2 rounded-lg border border-rose-500/30">
-                                <span class="block text-rose-300 text-xs mb-1">الهادر (${cuts} نشرة)</span>
-                                <span class="font-bold text-lg text-rose-400">${totalWaste}</span>
-                            </div>
-                            <div class="bg-emerald-900/40 p-2 rounded-lg border border-emerald-500/30">
-                                <span class="block text-emerald-300 text-xs mb-1">الباقي (متبقي من البكرة)</span>
-                                <span class="font-bold text-lg text-emerald-400">${remainder.toFixed(2)} <small>سم</small></span>
-                            </div>
-                        </div>
-
-                        <div class="mt-2 text-center bg-black/20 rounded-lg p-3">
-                            <p class="text-sm text-indigo-200">
-                                <i class="fa-solid fa-check-circle text-emerald-400 ml-1"></i>
-                                البكرة تكفي لإنتاج هذه المقاسات ويتبقى منها ${remainder.toFixed(2)} سم كعادم/باقي إضافي.
-                            </p>
-                        </div>
-                    </div>
-                `;
-            }
+            requiredUsableWidth = targetSizes.reduce((a, b) => a + b, 0);
         }
 
-        container.innerHTML = html;
+        let mainHtml = '<div class="flex flex-col gap-6 w-full">';
+
+        rollWidths.forEach((rollWidth, idx) => {
+            let rollHtml = '';
+
+            if (mode === 'equal') {
+                const cuts = parts - 1;
+                const totalWaste = cuts * wastePerCut;
+                const usableWidth = rollWidth - totalWaste;
+                
+                if (usableWidth <= 0) {
+                    rollHtml = `<p class="text-rose-400 font-bold text-sm"><i class="fa-solid fa-triangle-exclamation"></i> الهادر الإجمالي أكبر من أو يساوي عرض البكرة!</p>`;
+                } else {
+                    const sizePerPart = (usableWidth / parts).toFixed(2);
+                    rollHtml = `
+                        <div class="flex flex-col gap-4 w-full text-white">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="bg-indigo-800/50 p-3 rounded-lg border border-indigo-500/30">
+                                    <span class="block text-indigo-300 text-xs mb-1">عرض البكرة الأصلي</span>
+                                    <span class="font-bold text-xl">${rollWidth} <small class="text-sm">سم</small></span>
+                                </div>
+                                <div class="bg-rose-900/30 p-3 rounded-lg border border-rose-500/30">
+                                    <span class="block text-rose-300 text-xs mb-1">إجمالي الهادر (${cuts} نشرة)</span>
+                                    <span class="font-bold text-xl text-rose-400">${totalWaste} <small class="text-sm">سم</small></span>
+                                </div>
+                                <div class="bg-emerald-900/40 p-3 rounded-lg border border-emerald-500/30">
+                                    <span class="block text-emerald-300 text-xs mb-1">مقاس كل جزء (عدد ${parts})</span>
+                                    <span class="font-bold text-2xl text-emerald-400">${sizePerPart} <small class="text-sm">سم</small></span>
+                                </div>
+                            </div>
+
+                            <div class="mt-2 text-center bg-black/20 rounded-lg p-3">
+                                <p class="text-sm text-indigo-200">
+                                    <i class="fa-solid fa-check-circle text-emerald-400 ml-1"></i>
+                                    المعادلة: (${rollWidth} سم - ${totalWaste} سم هادر كلي) ÷ ${parts} أجزاء = ${sizePerPart} سم لكل جزء.
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                let cuts = targetSizes.length;
+                if (targetSizes.length === 1 && requiredUsableWidth === rollWidth) {
+                    cuts = 0;
+                }
+                
+                let totalWaste = cuts * wastePerCut;
+                
+                if (requiredUsableWidth + totalWaste > rollWidth) {
+                    if (cuts > 0 && requiredUsableWidth + (cuts - 1) * wastePerCut <= rollWidth) {
+                        cuts = cuts - 1;
+                        totalWaste = cuts * wastePerCut;
+                    }
+                }
+
+                const totalRequiredWidth = requiredUsableWidth + totalWaste;
+                const remainder = rollWidth - totalRequiredWidth;
+
+                if (remainder < 0) {
+                    rollHtml = `
+                        <div class="flex flex-col gap-3 w-full text-center">
+                            <p class="text-rose-400 font-bold text-lg"><i class="fa-solid fa-triangle-exclamation"></i> البكرة صغيرة جداً ولا تكفي!</p>
+                            <p class="text-indigo-200 text-sm">عرض البكرة: ${rollWidth} سم</p>
+                            <p class="text-indigo-200 text-sm">المطلوب الكلي (بما فيه ${totalWaste} سم هادر): ${totalRequiredWidth} سم</p>
+                            <p class="text-rose-300 text-sm font-bold mt-2">عجز بمقدار: ${Math.abs(remainder).toFixed(2)} سم</p>
+                        </div>
+                    `;
+                } else {
+                    rollHtml = `
+                        <div class="flex flex-col gap-4 w-full text-white">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div class="bg-indigo-800/50 p-2 rounded-lg border border-indigo-500/30">
+                                    <span class="block text-indigo-300 text-xs mb-1">عرض البكرة</span>
+                                    <span class="font-bold text-lg">${rollWidth}</span>
+                                </div>
+                                <div class="bg-indigo-800/50 p-2 rounded-lg border border-indigo-500/30">
+                                    <span class="block text-indigo-300 text-xs mb-1">المقاسات</span>
+                                    <span class="font-bold text-lg" dir="ltr">${targetSizes.join(' + ')}</span>
+                                </div>
+                                <div class="bg-rose-900/30 p-2 rounded-lg border border-rose-500/30">
+                                    <span class="block text-rose-300 text-xs mb-1">الهادر (${cuts} نشرة)</span>
+                                    <span class="font-bold text-lg text-rose-400">${totalWaste}</span>
+                                </div>
+                                <div class="bg-emerald-900/40 p-2 rounded-lg border border-emerald-500/30">
+                                    <span class="block text-emerald-300 text-xs mb-1">الباقي (متبقي من البكرة)</span>
+                                    <span class="font-bold text-lg text-emerald-400">${remainder.toFixed(2)} <small>سم</small></span>
+                                </div>
+                            </div>
+
+                            <div class="mt-2 text-center bg-black/20 rounded-lg p-3">
+                                <p class="text-sm text-indigo-200">
+                                    <i class="fa-solid fa-check-circle text-emerald-400 ml-1"></i>
+                                    البكرة تكفي لإنتاج هذه المقاسات ويتبقى منها ${remainder.toFixed(2)} سم كعادم/باقي إضافي.
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            mainHtml += `<div class="bg-indigo-950/80 p-4 rounded-xl border border-indigo-800">
+                <h4 class="text-amber-400 font-bold mb-3 text-sm border-b border-indigo-800 pb-2">نتيجة الحساب للبكرة (${rollWidth} سم)</h4>
+                ${rollHtml}
+            </div>`;
+        });
+
+        mainHtml += '</div>';
+        container.innerHTML = mainHtml;
     },
 
     searchRollForTargets() {
