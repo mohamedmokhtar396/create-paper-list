@@ -79,50 +79,44 @@ const slitter = {
         select.innerHTML = '<option value="">-- اختر بكرة من القائمة --</option>';
         
         const list = appData.lists.find(l => l.id === this.currentListId);
-        if (!list) return;
+        if (!list || !list.items || list.items.length === 0) return;
 
-        // Try to find columns that might represent 'Width' or 'Roll Size'
+        // Use the same aggregation logic as the main inventory
+        const aggregatedList = aggregateItemArray(list.items, list.headers);
         const sizeHeader = list.headers.find(h => h.name.includes('مقاس') || h.name.includes('عرض') || h.name.includes('Size'));
         const typeHeader = list.headers.find(h => h.name.includes('نوع') || h.name.includes('Type'));
 
-        list.items.forEach(item => {
-            let widthStr = sizeHeader ? item[sizeHeader.id] : null;
-            let typeStr = typeHeader ? item[typeHeader.id] : 'بكرة عامة';
+        aggregatedList.forEach(group => {
+            // Because group.groupValues might contain the size and type, let's extract them
+            let widthStr = sizeHeader ? (group.groupValues[sizeHeader.id] || group.infoValues[sizeHeader.id]?.[0] || '0') : '0';
+            let typeStr = typeHeader ? (group.groupValues[typeHeader.id] || group.infoValues[typeHeader.id]?.[0] || 'بكرة عامة') : 'بكرة عامة';
             
-            // Extract numeric width from string (e.g., "100" from "100 cm")
-            let numericWidth = widthStr ? parseFloat(toEnglishDigits(widthStr.toString())) : 0;
+            let numericWidth = parseFloat(toEnglishDigits(widthStr.toString()));
             
             if (numericWidth > 0) {
                 const opt = document.createElement('option');
                 opt.value = numericWidth;
-                opt.dataset.itemId = item.id;
-                opt.textContent = `[كود: ${item.itemCode || item.serialNo || '-'}] ${typeStr} - مقاس: ${numericWidth} سم`;
+                opt.textContent = `${typeStr} - مقاس: ${numericWidth} سم (الكمية: ${group.count})`;
                 select.appendChild(opt);
             }
         });
     },
 
     onRollChange() {
-        // Clear manual input if a list roll is selected
         document.getElementById('slitManualRoll').value = '';
         this.calculateSlit();
     },
 
     onManualRollInput() {
-        // Clear select if manual input is used
         document.getElementById('slitRollSelect').value = '';
         this.calculateSlit();
     },
 
     getRollWidth() {
         const manual = document.getElementById('slitManualRoll').value;
-        if (manual && !isNaN(parseFloat(manual))) {
-            return parseFloat(manual);
-        }
+        if (manual && !isNaN(parseFloat(manual))) return parseFloat(manual);
         const selected = document.getElementById('slitRollSelect').value;
-        if (selected && !isNaN(parseFloat(selected))) {
-            return parseFloat(selected);
-        }
+        if (selected && !isNaN(parseFloat(selected))) return parseFloat(selected);
         return 0;
     },
 
@@ -130,7 +124,7 @@ const slitter = {
         const container = document.getElementById('slittingResultContainer');
         const rollWidth = this.getRollWidth();
         let parts = parseInt(document.getElementById('slitParts').value) || 2;
-        let waste = parseFloat(document.getElementById('slitWaste').value) || 0;
+        let wastePerCut = parseFloat(document.getElementById('slitWaste').value) || 0;
 
         if (rollWidth <= 0) {
             container.innerHTML = '<p class="text-indigo-300 text-sm">قم بتحديد بكرة من القائمة أو إدخال مقاس لعرض النتيجة...</p>';
@@ -139,15 +133,13 @@ const slitter = {
 
         if (parts < 1) parts = 1;
 
-        // Waste is usually subtracted per cut. 
-        // 2 parts = 1 cut = 1 * waste.
-        // But the user UI asks for "إجمالي هادر القص" (Total Waste).
-        // Let's assume the user enters the total waste for the entire operation.
-        
-        const usableWidth = rollWidth - waste;
+        // Calculate cuts and total waste
+        const cuts = parts - 1;
+        const totalWaste = cuts * wastePerCut;
+        const usableWidth = rollWidth - totalWaste;
         
         if (usableWidth <= 0) {
-            container.innerHTML = `<p class="text-rose-400 font-bold text-sm"><i class="fa-solid fa-triangle-exclamation"></i> الهادر أكبر من أو يساوي عرض البكرة!</p>`;
+            container.innerHTML = `<p class="text-rose-400 font-bold text-sm"><i class="fa-solid fa-triangle-exclamation"></i> الهادر الإجمالي أكبر من أو يساوي عرض البكرة!</p>`;
             return;
         }
 
@@ -161,8 +153,8 @@ const slitter = {
                         <span class="font-bold text-xl">${rollWidth} <small class="text-sm">سم</small></span>
                     </div>
                     <div class="bg-rose-900/30 p-3 rounded-lg border border-rose-500/30">
-                        <span class="block text-rose-300 text-xs mb-1">إجمالي الهادر المخصوم</span>
-                        <span class="font-bold text-xl text-rose-400">${waste} <small class="text-sm">سم</small></span>
+                        <span class="block text-rose-300 text-xs mb-1">إجمالي الهادر (${cuts} نشرة)</span>
+                        <span class="font-bold text-xl text-rose-400">${totalWaste} <small class="text-sm">سم</small></span>
                     </div>
                     <div class="bg-emerald-900/40 p-3 rounded-lg border border-emerald-500/30">
                         <span class="block text-emerald-300 text-xs mb-1">مقاس كل جزء (عدد ${parts})</span>
@@ -173,7 +165,7 @@ const slitter = {
                 <div class="mt-2 text-center bg-black/20 rounded-lg p-3">
                     <p class="text-sm text-indigo-200">
                         <i class="fa-solid fa-check-circle text-emerald-400 ml-1"></i>
-                        المعادلة: (${rollWidth} سم - ${waste} سم هادر) ÷ ${parts} = ${sizePerPart} سم لكل بكرة ناتجة.
+                        المعادلة: (${rollWidth} سم - ${totalWaste} سم هادر كلي) ÷ ${parts} أجزاء = ${sizePerPart} سم لكل جزء.
                     </p>
                 </div>
             </div>
@@ -184,14 +176,13 @@ const slitter = {
     searchRollForTargets() {
         const container = document.getElementById('slittingSearchContainer');
         const targetStr = document.getElementById('slitTargets').value;
-        const waste = parseFloat(document.getElementById('slitWaste').value) || 0;
+        const wastePerCut = parseFloat(document.getElementById('slitWaste').value) || 0;
         
         if (!targetStr.trim()) {
             container.innerHTML = '<p class="text-slate-400 text-sm">أدخل مقاسات مطلوبة للبحث عن بكرة مناسبة...</p>';
             return;
         }
 
-        // Parse targets like "70, 50, 45"
         const targetSizes = targetStr.split(/[,،]+/).map(s => parseFloat(toEnglishDigits(s.trim()))).filter(n => !isNaN(n) && n > 0);
         
         if (targetSizes.length === 0) {
@@ -199,10 +190,11 @@ const slitter = {
             return;
         }
 
+        const cuts = targetSizes.length > 0 ? targetSizes.length - 1 : 0;
+        const totalWaste = cuts * wastePerCut;
         const requiredUsableWidth = targetSizes.reduce((a, b) => a + b, 0);
-        const totalRequiredWidth = requiredUsableWidth + waste;
+        const totalRequiredWidth = requiredUsableWidth + totalWaste;
 
-        // Search the currently selected list for suitable rolls
         const list = appData.lists.find(l => l.id === this.currentListId);
         if (!list) return;
 
@@ -216,16 +208,19 @@ const slitter = {
 
         let suitableRolls = [];
 
-        list.items.forEach(item => {
-            let widthStr = item[sizeHeader.id];
-            let numericWidth = widthStr ? parseFloat(toEnglishDigits(widthStr.toString())) : 0;
+        // Search within aggregated items to avoid duplicates
+        const aggregatedList = aggregateItemArray(list.items, list.headers);
+
+        aggregatedList.forEach(group => {
+            let widthStr = group.groupValues[sizeHeader.id] || group.infoValues[sizeHeader.id]?.[0] || '0';
+            let numericWidth = parseFloat(toEnglishDigits(widthStr.toString()));
             
             if (numericWidth >= totalRequiredWidth) {
-                let typeStr = typeHeader ? item[typeHeader.id] : 'غير محدد';
+                let typeStr = group.groupValues[typeHeader.id] || group.infoValues[typeHeader.id]?.[0] || 'غير محدد';
                 let wasteProduced = numericWidth - requiredUsableWidth; // Actual leftover/waste
                 
                 suitableRolls.push({
-                    item: item,
+                    count: group.count,
                     width: numericWidth,
                     type: typeStr,
                     waste: wasteProduced
@@ -256,7 +251,7 @@ const slitter = {
                     <table class="w-full text-xs text-right border-collapse">
                         <thead>
                             <tr class="bg-emerald-50 text-emerald-800 border-b border-emerald-200">
-                                <th class="p-2 border border-slate-200">الكود / المسلسل</th>
+                                <th class="p-2 border border-slate-200">الكمية المتاحة</th>
                                 <th class="p-2 border border-slate-200">النوع</th>
                                 <th class="p-2 border border-slate-200">مقاس البكرة</th>
                                 <th class="p-2 border border-slate-200">الباقي (الهادر الفعلي)</th>
@@ -270,7 +265,7 @@ const slitter = {
             const isBest = idx === 0;
             html += `
                 <tr class="${isBest ? 'bg-emerald-100/50 font-bold' : 'bg-white'}">
-                    <td class="p-2 border border-slate-200 text-indigo-700">${match.item.itemCode || match.item.serialNo || '-'}</td>
+                    <td class="p-2 border border-slate-200 text-indigo-700">${match.count} بكرة</td>
                     <td class="p-2 border border-slate-200">${match.type}</td>
                     <td class="p-2 border border-slate-200">${match.width} سم</td>
                     <td class="p-2 border border-slate-200 text-rose-600">${match.waste.toFixed(2)} سم</td>
