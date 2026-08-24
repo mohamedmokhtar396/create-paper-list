@@ -44,10 +44,25 @@
                 <input type="file" id="importJsonInput" class="hidden" accept=".json" onchange="importFullJSON(event)">
             </div>
         </div>
+        
+        <!-- Navigation Tabs -->
+        <div class="bg-indigo-950 border-t border-indigo-800">
+            <div class="max-w-7xl mx-auto px-4 flex gap-2">
+                <button onclick="switchAppView('inventory')" id="nav-inventory" class="px-5 py-3 text-sm font-bold text-white border-b-2 border-amber-400 hover:bg-indigo-800 transition flex items-center gap-2">
+                    <i class="fa-solid fa-boxes-stacked"></i> قسم الجرد والتجميع
+                </button>
+                <button onclick="switchAppView('slitting')" id="nav-slitting" class="px-5 py-3 text-sm font-bold text-indigo-300 border-b-2 border-transparent hover:text-white hover:bg-indigo-800 transition flex items-center gap-2">
+                    <i class="fa-solid fa-scissors"></i> قسم النشر والقص
+                </button>
+            </div>
+        </div>
     </header>
 
     <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full flex flex-col gap-6">
+
+        <!-- =================== INVENTORY VIEW =================== -->
+        <div id="inventoryView" class="w-full flex flex-col gap-6">
 
         <!-- Top Bar: List Manager & Stats Dashboard -->
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -211,6 +226,93 @@
             </div>
 
         </div>
+        </div> <!-- End of Inventory View -->
+
+        <!-- =================== SLITTING VIEW =================== -->
+        <div id="slittingView" class="w-full flex-col gap-6 hidden">
+            <!-- Header for Slitting -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <h2 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                        <i class="fa-solid fa-scissors text-indigo-600"></i> حاسبة قص ونشر الورق
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1">اختر بكرة من قائمة الجرد أو أدخل مقاس بكرة يدوياً لمعرفة مقاسات النشر وتفاصيل الهادر.</p>
+                </div>
+            </div>
+
+            <!-- Main Layout for Slitting View -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mt-6">
+                <!-- Left/Top: Input Controls -->
+                <div class="lg:col-span-5 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-5">
+                    <h3 class="font-bold text-slate-700 text-base border-b pb-2">1. حدد البكرة الأصلية</h3>
+                    
+                    <!-- Source Selection -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-slate-600">القائمة المستهدفة:</label>
+                        <select id="slitListSelect" onchange="slitter.onListChange()" class="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-900"></select>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-slate-600">البكرة المراد قصها:</label>
+                        <select id="slitRollSelect" onchange="slitter.onRollChange()" class="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold text-slate-700"></select>
+                    </div>
+
+                    <div class="flex items-center gap-4 my-2">
+                        <div class="h-px bg-slate-200 flex-1"></div>
+                        <span class="text-xs text-slate-400 font-bold">أو</span>
+                        <div class="h-px bg-slate-200 flex-1"></div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-slate-600">إدخال مقاس بكرة يدوي (سم):</label>
+                        <input type="number" id="slitManualRoll" placeholder="مثال: 200" oninput="slitter.onManualRollInput()" class="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold">
+                    </div>
+
+                    <h3 class="font-bold text-slate-700 text-base border-b pb-2 mt-4">2. إعدادات النشر</h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs font-bold text-slate-600">القص لكم جزء؟</label>
+                            <input type="number" id="slitParts" value="2" min="2" max="10" oninput="slitter.calculateSlit()" class="w-full text-sm p-2 text-center bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold">
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs font-bold text-slate-600">إجمالي هادر القص (سم):</label>
+                            <input type="number" id="slitWaste" value="2" min="0" step="0.5" oninput="slitter.calculateSlit()" class="w-full text-sm p-2 text-center bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold">
+                        </div>
+                    </div>
+                    
+                    <h3 class="font-bold text-slate-700 text-base border-b pb-2 mt-4">3. البحث العكسي (البحث عن بكرة)</h3>
+                    <p class="text-[10px] text-slate-500 leading-relaxed">أدخل المقاسات التي تريد الحصول عليها، وسيقوم النظام بالبحث في القائمة عن بكرة تكفي لإنتاج هذه المقاسات مع خصم الهادر.</p>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-slate-600">المقاسات المطلوبة (مفصولة بفاصلة):</label>
+                        <input type="text" id="slitTargets" placeholder="مثال: 70, 50, 45" oninput="slitter.searchRollForTargets()" class="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 font-bold border-emerald-200">
+                    </div>
+                </div>
+
+                <!-- Right/Bottom: Results Dashboard -->
+                <div class="lg:col-span-7 flex flex-col gap-6">
+                    <!-- Forward Calculation Result -->
+                    <div class="bg-indigo-900 text-white p-6 rounded-2xl shadow-md border border-indigo-700">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-lg"><i class="fa-solid fa-calculator text-amber-400"></i> نتيجة النشر (الحساب المباشر)</h3>
+                        </div>
+                        <div id="slittingResultContainer" class="bg-indigo-950/50 p-4 rounded-xl border border-indigo-800 text-center min-h-[120px] flex items-center justify-center">
+                            <p class="text-indigo-300 text-sm">قم بتحديد بكرة أو إدخال مقاس لعرض النتيجة...</p>
+                        </div>
+                    </div>
+
+                    <!-- Reverse Search Result -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-emerald-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800 text-lg"><i class="fa-solid fa-magnifying-glass text-emerald-500"></i> نتيجة البحث عن بكرة</h3>
+                        </div>
+                        <div id="slittingSearchContainer" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center min-h-[120px] flex items-center justify-center">
+                            <p class="text-slate-400 text-sm">أدخل مقاسات مطلوبة للبحث عن بكرة مناسبة...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> <!-- End of Slitting View -->
 
     </main>
 
@@ -283,5 +385,6 @@
     <script src="js/app.js"></script>
     <script src="js/render.js"></script>
     <script src="js/exporter.js"></script>
+    <script src="js/slitter.js"></script>
 </body>
 </html>
