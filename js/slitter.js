@@ -113,6 +113,20 @@ const slitter = {
         this.calculateSlit();
     },
 
+    onModeChange() {
+        const mode = document.getElementById('slitMode').value;
+        const equalConfig = document.getElementById('equalSlitConfig');
+        const customConfig = document.getElementById('customSlitConfig');
+        if (mode === 'equal') {
+            equalConfig.classList.remove('hidden');
+            customConfig.classList.add('hidden');
+        } else {
+            equalConfig.classList.add('hidden');
+            customConfig.classList.remove('hidden');
+        }
+        this.calculateSlit();
+    },
+
     getRollWidth() {
         const manual = document.getElementById('slitManualRoll').value;
         if (manual && !isNaN(parseFloat(manual))) return parseFloat(manual);
@@ -124,7 +138,7 @@ const slitter = {
     calculateSlit() {
         const container = document.getElementById('slittingResultContainer');
         const rollWidth = this.getRollWidth();
-        let parts = parseInt(document.getElementById('slitParts').value) || 2;
+        const mode = document.getElementById('slitMode').value;
         let wastePerCut = parseFloat(document.getElementById('slitWaste').value) || 0;
 
         if (rollWidth <= 0) {
@@ -132,45 +146,111 @@ const slitter = {
             return;
         }
 
-        if (parts < 1) parts = 1;
+        let html = '';
 
-        // Calculate cuts and total waste
-        const cuts = parts - 1;
-        const totalWaste = cuts * wastePerCut;
-        const usableWidth = rollWidth - totalWaste;
-        
-        if (usableWidth <= 0) {
-            container.innerHTML = `<p class="text-rose-400 font-bold text-sm"><i class="fa-solid fa-triangle-exclamation"></i> الهادر الإجمالي أكبر من أو يساوي عرض البكرة!</p>`;
-            return;
+        if (mode === 'equal') {
+            let parts = parseInt(document.getElementById('slitParts').value) || 2;
+            if (parts < 1) parts = 1;
+
+            const cuts = parts - 1;
+            const totalWaste = cuts * wastePerCut;
+            const usableWidth = rollWidth - totalWaste;
+            
+            if (usableWidth <= 0) {
+                container.innerHTML = `<p class="text-rose-400 font-bold text-sm"><i class="fa-solid fa-triangle-exclamation"></i> الهادر الإجمالي أكبر من أو يساوي عرض البكرة!</p>`;
+                return;
+            }
+
+            const sizePerPart = (usableWidth / parts).toFixed(2);
+            
+            html = `
+                <div class="flex flex-col gap-4 w-full text-white">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-indigo-800/50 p-3 rounded-lg border border-indigo-500/30">
+                            <span class="block text-indigo-300 text-xs mb-1">عرض البكرة الأصلي</span>
+                            <span class="font-bold text-xl">${rollWidth} <small class="text-sm">سم</small></span>
+                        </div>
+                        <div class="bg-rose-900/30 p-3 rounded-lg border border-rose-500/30">
+                            <span class="block text-rose-300 text-xs mb-1">إجمالي الهادر (${cuts} نشرة)</span>
+                            <span class="font-bold text-xl text-rose-400">${totalWaste} <small class="text-sm">سم</small></span>
+                        </div>
+                        <div class="bg-emerald-900/40 p-3 rounded-lg border border-emerald-500/30">
+                            <span class="block text-emerald-300 text-xs mb-1">مقاس كل جزء (عدد ${parts})</span>
+                            <span class="font-bold text-2xl text-emerald-400">${sizePerPart} <small class="text-sm">سم</small></span>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 text-center bg-black/20 rounded-lg p-3">
+                        <p class="text-sm text-indigo-200">
+                            <i class="fa-solid fa-check-circle text-emerald-400 ml-1"></i>
+                            المعادلة: (${rollWidth} سم - ${totalWaste} سم هادر كلي) ÷ ${parts} أجزاء = ${sizePerPart} سم لكل جزء.
+                        </p>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Custom mode
+            const targetStr = document.getElementById('slitCustomTargets').value;
+            if (!targetStr.trim()) {
+                container.innerHTML = '<p class="text-indigo-300 text-sm">أدخل المقاسات المطلوبة للحساب...</p>';
+                return;
+            }
+
+            const targetSizes = targetStr.split(/[,،]+/).map(s => parseFloat(toEnglishDigits(s.trim()))).filter(n => !isNaN(n) && n > 0);
+            
+            if (targetSizes.length === 0) {
+                container.innerHTML = '<p class="text-rose-400 font-bold text-sm">يرجى إدخال مقاسات صحيحة (مثال: 86, 72)</p>';
+                return;
+            }
+
+            const cuts = targetSizes.length > 0 ? targetSizes.length - 1 : 0;
+            const totalWaste = cuts * wastePerCut;
+            const requiredUsableWidth = targetSizes.reduce((a, b) => a + b, 0);
+            const totalRequiredWidth = requiredUsableWidth + totalWaste;
+            const remainder = rollWidth - totalRequiredWidth;
+
+            if (remainder < 0) {
+                html = `
+                    <div class="flex flex-col gap-3 w-full text-center">
+                        <p class="text-rose-400 font-bold text-lg"><i class="fa-solid fa-triangle-exclamation"></i> البكرة صغيرة جداً ولا تكفي!</p>
+                        <p class="text-indigo-200 text-sm">عرض البكرة: ${rollWidth} سم</p>
+                        <p class="text-indigo-200 text-sm">المطلوب الكلي (بما فيه ${totalWaste} سم هادر): ${totalRequiredWidth} سم</p>
+                        <p class="text-rose-300 text-sm font-bold mt-2">عجز بمقدار: ${Math.abs(remainder).toFixed(2)} سم</p>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div class="flex flex-col gap-4 w-full text-white">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div class="bg-indigo-800/50 p-2 rounded-lg border border-indigo-500/30">
+                                <span class="block text-indigo-300 text-xs mb-1">عرض البكرة</span>
+                                <span class="font-bold text-lg">${rollWidth}</span>
+                            </div>
+                            <div class="bg-indigo-800/50 p-2 rounded-lg border border-indigo-500/30">
+                                <span class="block text-indigo-300 text-xs mb-1">المقاسات</span>
+                                <span class="font-bold text-lg" dir="ltr">${targetSizes.join(' + ')}</span>
+                            </div>
+                            <div class="bg-rose-900/30 p-2 rounded-lg border border-rose-500/30">
+                                <span class="block text-rose-300 text-xs mb-1">الهادر (${cuts} نشرة)</span>
+                                <span class="font-bold text-lg text-rose-400">${totalWaste}</span>
+                            </div>
+                            <div class="bg-emerald-900/40 p-2 rounded-lg border border-emerald-500/30">
+                                <span class="block text-emerald-300 text-xs mb-1">الباقي (متبقي من البكرة)</span>
+                                <span class="font-bold text-lg text-emerald-400">${remainder.toFixed(2)} <small>سم</small></span>
+                            </div>
+                        </div>
+
+                        <div class="mt-2 text-center bg-black/20 rounded-lg p-3">
+                            <p class="text-sm text-indigo-200">
+                                <i class="fa-solid fa-check-circle text-emerald-400 ml-1"></i>
+                                البكرة تكفي لإنتاج هذه المقاسات ويتبقى منها ${remainder.toFixed(2)} سم كعادم/باقي إضافي.
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
         }
 
-        const sizePerPart = (usableWidth / parts).toFixed(2);
-        
-        let html = `
-            <div class="flex flex-col gap-4 w-full text-white">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-indigo-800/50 p-3 rounded-lg border border-indigo-500/30">
-                        <span class="block text-indigo-300 text-xs mb-1">عرض البكرة الأصلي</span>
-                        <span class="font-bold text-xl">${rollWidth} <small class="text-sm">سم</small></span>
-                    </div>
-                    <div class="bg-rose-900/30 p-3 rounded-lg border border-rose-500/30">
-                        <span class="block text-rose-300 text-xs mb-1">إجمالي الهادر (${cuts} نشرة)</span>
-                        <span class="font-bold text-xl text-rose-400">${totalWaste} <small class="text-sm">سم</small></span>
-                    </div>
-                    <div class="bg-emerald-900/40 p-3 rounded-lg border border-emerald-500/30">
-                        <span class="block text-emerald-300 text-xs mb-1">مقاس كل جزء (عدد ${parts})</span>
-                        <span class="font-bold text-2xl text-emerald-400">${sizePerPart} <small class="text-sm">سم</small></span>
-                    </div>
-                </div>
-
-                <div class="mt-2 text-center bg-black/20 rounded-lg p-3">
-                    <p class="text-sm text-indigo-200">
-                        <i class="fa-solid fa-check-circle text-emerald-400 ml-1"></i>
-                        المعادلة: (${rollWidth} سم - ${totalWaste} سم هادر كلي) ÷ ${parts} أجزاء = ${sizePerPart} سم لكل جزء.
-                    </p>
-                </div>
-            </div>
-        `;
         container.innerHTML = html;
     },
 
