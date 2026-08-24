@@ -82,7 +82,9 @@ function createNewList() {
         title: name.trim(),
         subTitle: 'تقرير الأصناف واللوائح المدمجة',
         createdAt: new Date().toLocaleDateString('en-GB'),
-        categories: JSON.parse(JSON.stringify(defaultCategories)),
+        categories: [
+            { id: 'cat_main_' + Date.now(), name: 'أصناف عامة' }
+        ],
         headers: JSON.parse(JSON.stringify(currentList.headers)),
         items: []
     };
@@ -435,20 +437,23 @@ function aggregateItemArray(items, headers) {
 
     const map = new Map();
 
-    items.forEach(item => {
+    items.forEach((item, index) => {
         if (!item) return;
 
         const groupKey = groupHeaders
             .map(h => toEnglishDigits((item[h.id] || '').toString().trim().toLowerCase()))
             .join('___');
+            
+        // Fallback to original order or index + 1 if no itemCode
+        const serial = item.itemCode || item.serialNo || (item.originalOrder) || (index + 1);
 
         if (!map.has(groupKey)) {
             const aggregatedObj = {
                 count: 1,
+                originalSerials: [serial],
                 groupValues: {},
                 sumValues: {},
-                infoValues: {},
-                itemCodes: [(item.itemCode || item.serialNo || '').toString()]
+                infoValues: {}
             };
             groupHeaders.forEach(h => aggregatedObj.groupValues[h.id] = toEnglishDigits(item[h.id] || ''));
             sumHeaders.forEach(h => aggregatedObj.sumValues[h.id] = parseFloat(toEnglishDigits(item[h.id])) || 0);
@@ -460,7 +465,9 @@ function aggregateItemArray(items, headers) {
         } else {
             const existing = map.get(groupKey);
             existing.count += 1;
-            existing.itemCodes.push((item.itemCode || item.serialNo || '').toString());
+            if (!existing.originalSerials.includes(serial)) {
+                existing.originalSerials.push(serial);
+            }
             sumHeaders.forEach(h => {
                 const prevSum = existing.sumValues[h.id] || 0;
                 existing.sumValues[h.id] = prevSum + (parseFloat(toEnglishDigits(item[h.id])) || 0);

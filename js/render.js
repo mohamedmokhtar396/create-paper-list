@@ -246,9 +246,9 @@ function buildAggregatedTableSection(aggregatedList, headers, filterText, isSpec
     let rowsHTML = '';
 
     filtered.forEach((row, idx) => {
-        const mergedCodesStr = row.itemCodes ? row.itemCodes.filter(Boolean).join(' و ') : formatEnglishNumber(idx + 1, false);
         rowsHTML += `<tr class="${idx % 2 === 0 ? 'bg-white' : (isSpecialTable ? 'bg-amber-50/50' : 'bg-slate-50')}">`;
-        rowsHTML += `<td class="p-1.5 border border-slate-200 text-center font-bold text-slate-500 whitespace-normal min-w-[30px] break-words">${mergedCodesStr}</td>`;
+        const serials = (row.originalSerials || [idx + 1]).join(' , ');
+        rowsHTML += `<td class="p-1.5 border border-slate-200 text-center font-bold text-slate-500 whitespace-nowrap">${serials}</td>`;
         
         headers.forEach(h => {
             if (h.role === 'group') {
