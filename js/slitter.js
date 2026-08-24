@@ -203,9 +203,28 @@ const slitter = {
                 return;
             }
 
-            const cuts = targetSizes.length > 0 ? targetSizes.length - 1 : 0;
-            const totalWaste = cuts * wastePerCut;
-            const requiredUsableWidth = targetSizes.reduce((a, b) => a + b, 0);
+            let requiredUsableWidth = targetSizes.reduce((a, b) => a + b, 0);
+            
+            // Smart cuts calculation
+            // By default, every requested piece requires 1 cut to separate it from the mother roll (or remainder).
+            let cuts = targetSizes.length;
+            
+            // Exception 1: If the user wants 1 piece and it's exactly the roll size, 0 cuts.
+            if (targetSizes.length === 1 && requiredUsableWidth === rollWidth) {
+                cuts = 0;
+            }
+            
+            let totalWaste = cuts * wastePerCut;
+            
+            // Exception 2: If calculating a cut for every piece exceeds the roll width,
+            // check if we can fit them by skipping the final trim cut (letting the last piece hit the edge).
+            if (requiredUsableWidth + totalWaste > rollWidth) {
+                if (cuts > 0 && requiredUsableWidth + (cuts - 1) * wastePerCut <= rollWidth) {
+                    cuts = cuts - 1;
+                    totalWaste = cuts * wastePerCut;
+                }
+            }
+
             const totalRequiredWidth = requiredUsableWidth + totalWaste;
             const remainder = rollWidth - totalRequiredWidth;
 
@@ -271,10 +290,7 @@ const slitter = {
             return;
         }
 
-        const cuts = targetSizes.length > 0 ? targetSizes.length - 1 : 0;
-        const totalWaste = cuts * wastePerCut;
         const requiredUsableWidth = targetSizes.reduce((a, b) => a + b, 0);
-        const totalRequiredWidth = requiredUsableWidth + totalWaste;
 
         const list = appData.lists.find(l => l.id === this.currentListId);
         if (!list) return;
@@ -288,17 +304,30 @@ const slitter = {
         }
 
         let suitableRolls = [];
-
-        // Search within aggregated items to avoid duplicates
         const aggregatedList = aggregateItemArray(list.items, list.headers);
 
         aggregatedList.forEach(group => {
             let widthStr = group.groupValues[sizeHeader.id] || group.infoValues[sizeHeader.id]?.[0] || '0';
             let numericWidth = parseFloat(toEnglishDigits(widthStr.toString()));
             
+            // Apply smart cuts logic for this specific roll
+            let cuts = targetSizes.length;
+            if (targetSizes.length === 1 && requiredUsableWidth === numericWidth) {
+                cuts = 0;
+            }
+            let totalWaste = cuts * wastePerCut;
+            if (requiredUsableWidth + totalWaste > numericWidth) {
+                if (cuts > 0 && requiredUsableWidth + (cuts - 1) * wastePerCut <= numericWidth) {
+                    cuts = cuts - 1;
+                    totalWaste = cuts * wastePerCut;
+                }
+            }
+
+            const totalRequiredWidth = requiredUsableWidth + totalWaste;
+
             if (numericWidth >= totalRequiredWidth) {
                 let typeStr = group.groupValues[typeHeader.id] || group.infoValues[typeHeader.id]?.[0] || 'غير محدد';
-                let wasteProduced = numericWidth - requiredUsableWidth; // Actual leftover/waste
+                let wasteProduced = numericWidth - requiredUsableWidth; // Actual leftover/trim
                 
                 suitableRolls.push({
                     count: group.count,
